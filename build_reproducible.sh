@@ -34,10 +34,10 @@ $DOCKER run --rm --network host \
             RUSTFLAGS="--remap-path-prefix $(pwd)=/workspace" \
             cargo build --locked --release --target x86_64-unknown-linux-musl
 
-        cp /tmp/cargo-target/x86_64-unknown-linux-musl/release/the_server .
+        cp /tmp/cargo-target/x86_64-unknown-linux-musl/release/the-server ./the_server
 
         # 2. Generate SHA384 hash (similar to measurement)
-        sha384sum the_server | awk '{print $1}' > the_server_hash.txt
+        sha384sum the_server | cut -d" " -f1 > the_server_hash.txt
         echo "=== FINAL THE SERVER HASH ==="
         cat the_server_hash.txt
         echo
