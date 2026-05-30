@@ -1,0 +1,103 @@
+name: Build and Release Confidential Micro-Loader
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  build_and_release:
+    name: Build & Measure
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Run Reproducible Build in Docker
+        run: |
+          chmod +x build_reproducible.sh
+          ./build_reproducible.sh
+
+      - name: Generate Hashes for Release Notes
+        id: hashes
+        run: |
+          # 1. the_server SHA-384 and SHA-256
+          THE_SERVER_HASH=$(sha384sum the_server | awk '{print $1}')
+          THE_SERVER_SHA256=$(sha256sum the_server | awk '{print $1}')
+          
+          # 2. the_server_hash.txt SHA-256
+          TXT_HASH=$(cat the_server_hash.txt)
+          TXT_SHA256=$(sha256sum the_server_hash.txt | awk '{print $1}')
+
+          # Output to GitHub Actions environment
+          echo "THE_SERVER_HASH=$THE_SERVER_HASH" >> $GITHUB_ENV
+          echo "THE_SERVER_SHA256=$THE_SERVER_SHA256" >> $GITHUB_ENV
+          echo "TXT_HASH=$TXT_HASH" >> $GITHUB_ENV
+          echo "TXT_SHA256=$TXT_SHA256" >> $GITHUB_ENV
+
+      - name: Generate Release Notes
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          cat > release_notes.md <<'ENDOFNOTES'
+          ## Reproducible Build Hashes
+
+          Every artifact below was compiled inside a deterministic Docker container (Ubuntu 24.04 + GCC 11.4.0 + Rust 1.95.0). You can reproduce these exact hashes on your own machine.
+
+          | Artifact | SHA-384 Hash | Digest (SHA-256) | Attestation Report |
+          | :--- | :--- | :--- | :--- |
+          ENDOFNOTES
+          echo "| **Server Binary** (the_server) | \`$THE_SERVER_HASH\` | \`$THE_SERVER_SHA256\` | [View Attestation](https://search.sigstore.dev/?hash=sha256:$THE_SERVER_SHA256) |" >> release_notes.md
+          echo "| **Server Hash** (the_server_hash.txt) | \`$TXT_HASH\` | \`$TXT_SHA256\` | [View Attestation](https://search.sigstore.dev/?hash=sha256:$TXT_SHA256) |" >> release_notes.md
+          cat >> release_notes.md <<'ENDOFNOTES'
+
+          The **the_server** is the payload for the confidential micro-loader. If your locally computed measurement matches this value, you have mathematical proof that the release binary was compiled from this exact source code.
+
+          ## How to Verify This Release
+
+          **Prerequisites:** [Docker](https://docs.docker.com/get-docker/) must be installed.
+
+          ```bash
+          git clone https://github.com/deadrouter-ai/sev-micro-loader.git
+          cd sev-micro-loader
+          ENDOFNOTES
+          echo "git checkout ${TAG}" >> release_notes.md
+          cat >> release_notes.md <<'ENDOFNOTES'
+          ./build_reproducible.sh
+          ```
+
+          When the script finishes, it prints the **Final SEV-SNP Measurement**. If it matches the value in the table above, the release is authentic and unmodified.
+
+          > **Why Docker?** Different compiler versions produce different binaries. The Docker container ensures everyone uses the exact same toolchain, so the output is identical regardless of your host OS.
+
+          ## Security Model
+
+          - The server source code is **fully public**.
+          ENDOFNOTES
+
+      - name: Attest Build Provenance
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            the_server
+            the_server_hash.txt
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          files: |
+            the_server
+            the_server_hash.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
