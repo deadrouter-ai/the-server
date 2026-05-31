@@ -77,8 +77,8 @@ pub async fn start(state: Arc<AppState>) {
         println!("[tor]  Onion service active: http://{} and https://{}", full_addr, full_addr);
         full_addr
     } else {
-        println!("[tor]  Onion service launched (address pending descriptor upload)");
-        String::new()
+        // Server must panic without onion support.
+        panic!("[tor]  Onion service launched (address pending descriptor upload)");
     };
 
     // Generate a new self-signed certificate explicitly for the Onion HTTPS port
