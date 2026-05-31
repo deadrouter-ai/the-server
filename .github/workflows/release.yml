@@ -74,13 +74,9 @@ jobs:
           ./build_reproducible.sh
           ```
 
-          When the script finishes, it prints the **Final SEV-SNP Measurement**. If it matches the value in the table above, the release is authentic and unmodified.
+          When the script finishes, it prints the **Final Server Hash**. If it matches the value in the table above, the release is authentic and unmodified.
 
           > **Why Docker?** Different compiler versions produce different binaries. The Docker container ensures everyone uses the exact same toolchain, so the output is identical regardless of your host OS.
-
-          ## Security Model
-
-          - The server source code is **fully public**.
           ENDOFNOTES
 
       - name: Attest Build Provenance

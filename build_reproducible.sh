@@ -42,4 +42,3 @@ $DOCKER run --rm --network host \
         cat the_server_hash.txt
         echo
     '
-echo "Build complete. Artifacts generated perfectly reproducibly."

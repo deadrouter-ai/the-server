@@ -4,7 +4,47 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+tokio = { version = "1", features = ["full"] }
+hyper = { version = "1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+http-body-util = "0.1"
+bytes = "1"
+futures = "0.3"
+mimalloc = { version = "*", features = ["secure"] }
+tempfile = "3"
+base64ct = { version = "1.8.3", features = ["alloc"] }
+base16ct = { version = "1.0.0", features = ["alloc"] }
 
+# TLS & Crypto — aws-lc-rs backed, FIPS-capable
+rustls = { version = "0.23", default-features = false, features = [
+    "std",
+    "logging",
+    "aws_lc_rs",
+    "fips",
+] }
+tokio-rustls = "0.26"
+rustls-pemfile = "2"
+rcgen = { version = "0.14", features = ["pem"] }
+aws-lc-rs = { version = "1.17", features = ["fips"] }
+
+# QUIC / HTTP3
+s2n-quic = { version = "1.81", features = ["provider-tls-rustls"] }
+h3 = "0.0.6"
+arti-client = { version = "0.42.0", default-features = false, features = [
+    "onion-service-service",
+    "rustls",
+    "tokio",
+    "vanguards",
+    "compression",
+] }
+tor-hsservice = "0.42.0"
+tor-cell = "0.42.0"
+rusqlite = { version = "0.36", features = ["bundled"] }
+safelog = "0.8.2"
+
+[features]
+# Declared to silence the `unexpected_cfgs` warnings from our local quic_h3.rs bridge
+tracing = []
 
 [profile.release]
 opt-level = 3
