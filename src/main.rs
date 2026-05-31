@@ -420,7 +420,9 @@ async fn spawn_onion_service(state: Arc<AppState>) {
     config_builder
         .storage()
         .cache_dir(temp_cfg_path.clone())
-        .state_dir(temp_cfg_path);
+        .state_dir(temp_cfg_path)
+        .permissions()
+        .dangerously_trust_everyone();
 
     let tor_config = config_builder.build().expect("valid tor config");
 

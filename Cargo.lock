@@ -4034,6 +4034,7 @@ dependencies = [
  "base16ct 1.0.0",
  "base64ct",
  "bytes",
+ "fs-mistrust",
  "futures",
  "h3",
  "http-body-util",

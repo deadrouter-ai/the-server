@@ -17,14 +17,14 @@ echo "Building reproducible Docker image..."
 $DOCKER build --network host -t sev-reproducible-builder -f Dockerfile.reproducible .
 
 # Run the build process inside the container
-# IMPORTANT: We do NOT mount $HOME/.cargo into the container. The Docker image
-# has Rust 1.95.0 installed at a fixed version. Mounting the host's .cargo would
-# override this with whatever the host has, breaking reproducibility.
 echo "Running build inside isolated container..."
-mkdir -p "$HOME/.cache/ccache"
+mkdir -p "$HOME/.cache/ccache" "$HOME/.cache/cargo-repro/registry" "$HOME/.cache/cargo-repro/git" "$HOME/.cache/cargo-repro/target"
 $DOCKER run --rm --network host \
     -v "$(pwd):/workspace" \
     -v "$HOME/.cache/ccache:/root/.cache/ccache" \
+    -v "$HOME/.cache/cargo-repro/registry:/root/.cargo/registry" \
+    -v "$HOME/.cache/cargo-repro/git:/root/.cargo/git" \
+    -v "$HOME/.cache/cargo-repro/target:/tmp/cargo-target" \
     -w /workspace \
     sev-reproducible-builder \
     /bin/bash -c '
