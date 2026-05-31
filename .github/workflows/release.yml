@@ -1,4 +1,4 @@
-name: Build and Release Confidential Micro-Loader
+name: Build and Release The Server
 
 on:
   push:
@@ -35,6 +35,7 @@ jobs:
         run: |
           chmod +x build_reproducible.sh
           ./build_reproducible.sh
+          sudo chown -R $USER:$USER ~/.cache/ccache ~/.cache/cargo-repro
 
       - name: Generate Hashes for Release Notes
         id: hashes
