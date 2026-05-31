@@ -14,6 +14,7 @@ mimalloc = { version = "*", features = ["secure"] }
 tempfile = "3"
 base64ct = { version = "1.8.3", features = ["alloc"] }
 base16ct = { version = "1.0.0", features = ["alloc"] }
+askama = "0.16"
 
 # TLS & Crypto — aws-lc-rs backed, FIPS-capable
 rustls = { version = "0.23", default-features = false, features = [
@@ -24,11 +25,11 @@ rustls = { version = "0.23", default-features = false, features = [
 ] }
 tokio-rustls = "0.26"
 rustls-pemfile = "2"
-rcgen = { version = "0.14", features = ["pem"] }
+rcgen = { version = "0.14", default-features = false, features = ["aws_lc_rs", "fips", "pem"] }
 aws-lc-rs = { version = "1.17", features = ["fips"] }
 
 # QUIC / HTTP3
-s2n-quic = { version = "1.81", features = ["provider-tls-rustls"] }
+s2n-quic = { version = "1.81", default-features = false, features = ["provider-tls-rustls", "provider-address-token-default"] }
 h3 = "0.0.6"
 arti-client = { version = "0.42.0", default-features = false, features = [
     "onion-service-service",
