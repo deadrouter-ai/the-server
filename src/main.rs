@@ -19,6 +19,7 @@ use hyper::{Method, Uri, StatusCode};
 
 mod quic_h3;
 mod connections;
+mod routes;
 
 use mimalloc::MiMalloc;
 
@@ -123,6 +124,11 @@ pub fn router(
             )
         }
 
+        // ---- Landing page ----
+        (Method::GET, "/") => {
+            crate::routes::handle_landing_page(state, req)
+        }
+
         // ---- Default / catch-all ----
         (Method::GET, _) | (Method::HEAD, _) => {
             let onion = state
@@ -188,7 +194,11 @@ async fn main() {
     connections::clearnet::start_all(state.clone(), tls_port, http_port).await;
 
     // ---- Start Onion Service ----
-    connections::onion::start(state.clone()).await;
+    if !is_dev {
+        connections::onion::start(state.clone()).await;
+    } else {
+        println!("[skip] Onion service disabled in development mode.");
+    }
 
     println!("\n[ready] All listeners active.\n");
 
