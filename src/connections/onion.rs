@@ -179,19 +179,34 @@ pub async fn start(state: Arc<AppState>) {
                                 hyper::Version::HTTP_2 => "Tor Onion (HTTP/2)",
                                 _ => "Tor Onion (HTTP/1.1)",
                             };
-                            let incoming = IncomingRequest {
-                                method: req.method().clone(),
-                                uri: req.uri().clone(),
-                                protocol: proto,
+                            let (parts, incoming_body) = req.into_parts();
+                            let body_bytes = match http_body_util::BodyExt::collect(incoming_body).await {
+                                Ok(collected) => collected.to_bytes(),
+                                Err(_) => Bytes::new(),
                             };
-                            let (status, headers, body) = router(&state, &incoming);
+
+                            let mut header_map = std::collections::HashMap::new();
+                            for (k, v) in parts.headers.iter() {
+                                if let Ok(val) = v.to_str() {
+                                    header_map.insert(k.as_str().to_lowercase(), val.to_string());
+                                }
+                            }
+
+                            let incoming = IncomingRequest {
+                                method: parts.method,
+                                uri: parts.uri,
+                                protocol: proto,
+                                headers: header_map,
+                                body: body_bytes,
+                            };
+                            let (status, headers, body) = router(&state, &incoming).await;
 
                             let mut builder = Response::builder().status(status);
                             builder = builder.header("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
                             for (k, v) in &headers {
                                 builder = builder.header(*k, v.as_str());
                             }
-                            Ok::<_, Infallible>(builder.body(Full::new(Bytes::from(body))).unwrap())
+                            Ok::<_, Infallible>(builder.body(body).unwrap())
                         }
                     });
 

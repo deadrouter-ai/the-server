@@ -10,13 +10,13 @@ pub fn hardened_crypto_provider() -> rustls::crypto::CryptoProvider {
     rustls::crypto::CryptoProvider {
         cipher_suites: vec![aws_lc_rs::cipher_suite::TLS13_AES_256_GCM_SHA384],
         kx_groups: vec![
-            aws_lc_rs::kx_group::SECP256R1MLKEM768,
-            // Note - per NIST SP 800-56C Rev. 2, the X25519MLKEM768 is compliant.
-            aws_lc_rs::kx_group::X25519MLKEM768,
-            aws_lc_rs::kx_group::MLKEM1024,
-            aws_lc_rs::kx_group::MLKEM768,
-            aws_lc_rs::kx_group::SECP384R1,
-            aws_lc_rs::kx_group::SECP256R1,
+            rustls::crypto::aws_lc_rs::kx_group::X25519MLKEM768,
+            rustls::crypto::aws_lc_rs::kx_group::SECP256R1MLKEM768,
+            rustls::crypto::aws_lc_rs::kx_group::MLKEM1024,
+            rustls::crypto::aws_lc_rs::kx_group::MLKEM768,
+            rustls::crypto::aws_lc_rs::kx_group::SECP384R1,
+            rustls::crypto::aws_lc_rs::kx_group::X25519,
+            rustls::crypto::aws_lc_rs::kx_group::SECP256R1,
         ],
         ..aws_lc_rs::default_provider()
     }
