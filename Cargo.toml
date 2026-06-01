@@ -24,7 +24,6 @@ rustls = { version = "0.23", default-features = false, features = [
     "fips",
 ] }
 tokio-rustls = "0.26"
-rustls-pemfile = "2"
 rcgen = { version = "0.14", default-features = false, features = ["aws_lc_rs", "fips", "pem"] }
 aws-lc-rs = { version = "1.17", features = ["fips"] }
 
@@ -54,3 +53,6 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+[patch.crates-io]
+cuckoofilter = { path = "./dummy_cuckoofilter" }

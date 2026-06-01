@@ -188,11 +188,7 @@ async fn main() {
     connections::clearnet::start_all(state.clone(), tls_port, http_port).await;
 
     // ---- Start Onion Service ----
-    if !is_dev {
-        connections::onion::start(state.clone()).await;
-    } else {
-        println!("[tor]  Onion service disabled in DEVELOPMENT mode.");
-    }
+    connections::onion::start(state.clone()).await;
 
     println!("\n[ready] All listeners active.\n");
 

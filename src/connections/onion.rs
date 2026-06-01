@@ -9,7 +9,6 @@ use http_body_util::Full;
 use hyper::service::service_fn;
 use hyper::{Request, Response, StatusCode};
 use safelog::DisplayRedacted;
-use tempfile::TempDir;
 use tor_hsservice::config::OnionServiceConfigBuilder;
 use tor_cell::relaycell::msg::End;
 use tokio_rustls::TlsAcceptor;
@@ -22,7 +21,7 @@ use crate::{
 pub async fn start(state: Arc<AppState>) {
     println!("[tor]  Bootstrapping Tor client...");
 
-    let tor_state_dir = TempDir::new().expect("failed to create ephemeral tor state dir");
+    let tor_state_dir = tempfile::tempdir_in("/dev/shm").expect("failed to create ephemeral tor state dir in RAM");
     let temp_path_str = tor_state_dir.path().to_string_lossy().into_owned();
     let temp_cfg_path = CfgPath::new(temp_path_str);
 
@@ -32,7 +31,8 @@ pub async fn start(state: Arc<AppState>) {
         .cache_dir(temp_cfg_path.clone())
         .state_dir(temp_cfg_path)
         .permissions()
-        .dangerously_trust_everyone();
+        .dangerously_trust_everyone()
+        .ignore_prefix("/dev/shm");
 
     let tor_config = config_builder.build().expect("valid tor config");
 
