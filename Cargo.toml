@@ -4,58 +4,57 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# Async & Concurrency
 tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io"] }
+futures = "0.3"
+async-stream = "0.3"
+
+# HTTP & Web
 hyper = { version = "1", features = ["full"] }
 hyper-util = { version = "0.1", features = ["full"] }
 http-body-util = "0.1"
-bytes = "1"
-futures = "0.3"
-mimalloc = { version = "*", features = ["secure"] }
-tempfile = "3"
-base64ct = { version = "1", features = ["alloc"] }
-base16ct = { version = "1", features = ["alloc"] }
-askama = "0.16"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2", "json", "stream"] }
 
-# TLS & Crypto — aws-lc-rs backed, FIPS-capable
-rustls = { version = "0.23", default-features = false, features = [
-    "std",
-    "aws_lc_rs",
-    "fips",
-] }
+# QUIC & HTTP/3
+s2n-quic = { version = "1.81", default-features = false, features = ["provider-tls-rustls", "provider-address-token-default"] }
+h3 = "0.0.6"
+
+# TLS & Cryptography
+rustls = { version = "0.23", default-features = false, features = ["std", "aws_lc_rs", "fips"] }
 tokio-rustls = "0.26"
 rcgen = { version = "0.14", default-features = false, features = ["aws_lc_rs", "fips", "pem"] }
 aws-lc-rs = { version = "1.17", features = ["fips"] }
-reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2", "json", "stream"] }
 webpki-roots = "1"
 chacha20 = { version = "0.10", features = ["xchacha"] }
 poly1305 = "0.9"
-
-# QUIC / HTTP3
-s2n-quic = { version = "1.81", default-features = false, features = ["provider-tls-rustls", "provider-address-token-default"] }
-h3 = "0.0.6"
-arti-client = { version = "0.42", default-features = false, features = [
-    "onion-service-service",
-    "rustls",
-    "tokio",
-    "vanguards",
-    "compression",
-] }
-tor-hsservice = "0.42"
-tor-cell = "0.42"
-rusqlite = { version = "0.36", features = ["bundled"] }
-safelog = "0.8"
-fs-mistrust = "0.14"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-zeroize = "1.8"
-hex = "0.4"
-x509-parser = "0.18"
-dcap-qvl = "0.5"
-async-stream = "0.3"
 chacha20poly1305 = "0.10"
 curve25519-dalek = "4"
 x25519-dalek = "2"
-tokio-util = { version = "0.7", features = ["io"] }
+x509-parser = "0.18"
+zeroize = "1.8"
+
+# Tor / Arti
+arti-client = { version = "0.43", default-features = false, features = ["onion-service-service", "rustls", "tokio", "vanguards", "compression"] }
+tor-hsservice = "0.43"
+tor-cell = "0.43"
+safelog = "0.8"
+fs-mistrust = "0.14"
+
+# Serialization & Encoding
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64ct = { version = "1", features = ["alloc"] }
+base16ct = { version = "1", features = ["alloc"] }
+hex = "0.4"
+
+# Utilities & Misc
+bytes = "1"
+mimalloc = { version = "*", features = ["secure"] }
+tempfile = "3"
+askama = "0.16"
+rusqlite = { version = "0.36", features = ["bundled"] }
+dcap-qvl = "0.5"
 
 [features]
 # Declared to silence the `unexpected_cfgs` warnings from our local quic_h3.rs bridge

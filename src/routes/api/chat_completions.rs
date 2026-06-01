@@ -9,7 +9,7 @@ use hyper::body::Frame;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use zeroize::Zeroizing;
-use futures::StreamExt;
+use futures::{StreamExt, Stream};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio_util::io::StreamReader;
 
@@ -270,24 +270,28 @@ async fn process_near_ai_response(
                                             for choice in choices.iter_mut() {
                                                 if let Some(delta) = choice.get_mut("delta").and_then(|d| d.as_object_mut()) {
                                                     if let Some(enc_content) = delta.get("content").and_then(|v| v.as_str()) {
-                                                        match v2_decrypt(enc_content, &client_secret) {
-                                                            Ok(plain) => {
-                                                                delta.insert("content".to_string(), Value::String(plain));
-                                                            }
-                                                            Err(e) => {
-                                                                is_corrupt = true;
-                                                                error_msg = format!("Failed to decrypt stream content: {}", e);
+                                                        if enc_content.len() >= 112 {
+                                                            match v2_decrypt(enc_content, &client_secret) {
+                                                                Ok(plain) => {
+                                                                    delta.insert("content".to_string(), Value::String(plain));
+                                                                }
+                                                                Err(e) => {
+                                                                    is_corrupt = true;
+                                                                    error_msg = format!("Failed to decrypt stream content: {}", e);
+                                                                }
                                                             }
                                                         }
                                                     }
                                                     if let Some(enc_reasoning) = delta.get("reasoning_content").and_then(|v| v.as_str()) {
-                                                        match v2_decrypt(enc_reasoning, &client_secret) {
-                                                            Ok(plain) => {
-                                                                delta.insert("reasoning_content".to_string(), Value::String(plain));
-                                                            }
-                                                            Err(e) => {
-                                                                is_corrupt = true;
-                                                                error_msg = format!("Failed to decrypt stream reasoning: {}", e);
+                                                        if enc_reasoning.len() >= 112 {
+                                                            match v2_decrypt(enc_reasoning, &client_secret) {
+                                                                Ok(plain) => {
+                                                                    delta.insert("reasoning_content".to_string(), Value::String(plain));
+                                                                }
+                                                                Err(e) => {
+                                                                    is_corrupt = true;
+                                                                    error_msg = format!("Failed to decrypt stream reasoning: {}", e);
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -362,7 +366,8 @@ async fn process_near_ai_response(
             }
         };
 
-        Ok(BodyExt::boxed(StreamBody::new(stream)))
+        let wrapped = wrap_stream_with_timing_padding(Box::pin(stream));
+        Ok(BodyExt::boxed(StreamBody::new(wrapped)))
             
     } else {
         match resp.json::<Value>().await {
@@ -379,13 +384,17 @@ async fn process_near_ai_response(
                     for choice in choices.iter_mut() {
                         if let Some(message) = choice.get_mut("message").and_then(|m| m.as_object_mut()) {
                             if let Some(enc_content) = message.get("content").and_then(|v| v.as_str()) {
-                                if let Ok(plain) = v2_decrypt(enc_content, &client_secret) {
-                                    message.insert("content".to_string(), Value::String(plain));
+                                if enc_content.len() >= 112 {
+                                    if let Ok(plain) = v2_decrypt(enc_content, &client_secret) {
+                                        message.insert("content".to_string(), Value::String(plain));
+                                    }
                                 }
                             }
                             if let Some(enc_reasoning) = message.get("reasoning_content").and_then(|v| v.as_str()) {
-                                if let Ok(plain) = v2_decrypt(enc_reasoning, &client_secret) {
-                                    message.insert("reasoning_content".to_string(), Value::String(plain));
+                                if enc_reasoning.len() >= 112 {
+                                    if let Ok(plain) = v2_decrypt(enc_reasoning, &client_secret) {
+                                        message.insert("reasoning_content".to_string(), Value::String(plain));
+                                    }
                                 }
                             }
                         }
@@ -395,14 +404,22 @@ async fn process_near_ai_response(
                 let mut in_tok = 0.0;
                 let mut out_tok = 0.0;
 
-                let sanitized_json = sanitize_and_spoof_response(
+                let mut sanitized_json = sanitize_and_spoof_response(
                     json_resp, &chat_id, &requested_model, &provider_id,
                     price_input_1m, price_output_1m, &mut in_tok, &mut out_tok
                 );
 
                 mark_provider_healthy(&provider).await;
 
+                sanitized_json["pad"] = Value::String("".to_string());
+                let base_json = serde_json::to_string(&sanitized_json).unwrap();
+                let p = 1024 - (base_json.len() % 1024);
+                let pad_str = "X".repeat(p);
+                sanitized_json["pad"] = Value::String(pad_str);
+
                 let body_bytes = serde_json::to_vec(&sanitized_json).unwrap();
+                debug_assert_eq!(body_bytes.len() % 1024, 0);
+
                 Ok(BodyExt::boxed(Full::new(Bytes::from(body_bytes)).map_err(|e| match e {})))
             }
             Err(e) => Err(format!("Failed to parse JSON response: {}", e))
@@ -643,4 +660,196 @@ pub async fn handle_secure_openai_proxy(
             )
         }
     }
+}
+
+// ── Timing & Padding Side-Channel Defense ─────────────────────────────────────
+
+fn pad_json_sse(mut json: Value) -> String {
+    json["pad"] = Value::String("".to_string());
+    let base_json = serde_json::to_string(&json).unwrap();
+    let base_len = 6 + base_json.len() + 2; // "data: " + json + "\n\n"
+    let p = 256 - (base_len % 256);
+    let pad_str = "X".repeat(p);
+    json["pad"] = Value::String(pad_str);
+    
+    let final_json = serde_json::to_string(&json).unwrap();
+    format!("data: {}\n\n", final_json)
+}
+
+fn pad_raw_sse(line: &str) -> String {
+    let comment_base_len = line.len() + 5; // line + "\n: \n\n"
+    let p = 256 - (comment_base_len % 256);
+    let pad_str = "X".repeat(p);
+    format!("{}\n: {}\n\n", line, pad_str)
+}
+
+pub fn wrap_stream_with_timing_padding<S>(
+    mut upstream_stream: S,
+) -> std::pin::Pin<Box<dyn Stream<Item = Result<Frame<Bytes>, Infallible>> + Send + Sync>>
+where
+    S: Stream<Item = Result<Frame<Bytes>, Infallible>> + Send + Sync + Unpin + 'static,
+{
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<Frame<Bytes>, Infallible>>(1000);
+    
+    tokio::spawn(async move {
+        while let Some(item) = upstream_stream.next().await {
+            if tx.send(item).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    let mut interval = tokio::time::interval(std::time::Duration::from_millis(50));
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+    let mut stream_id: Option<String> = None;
+    let mut stream_object: Option<String> = None;
+    let mut stream_created: Option<u64> = None;
+    let mut stream_model: Option<String> = None;
+    let mut stream_provider: Option<String> = None;
+    let mut stream_system_fingerprint: Option<String> = None;
+
+    let mut upstream_done = false;
+    let mut sent_done = false;
+
+    Box::pin(async_stream::stream! {
+        loop {
+            interval.tick().await;
+
+            if sent_done {
+                break;
+            }
+
+            let mut aggregated_content = String::new();
+            let mut aggregated_reasoning = String::new();
+            let mut finish_reason: Option<String> = None;
+            let mut error_val: Option<Value> = None;
+            let mut got_data = false;
+
+            loop {
+                match rx.try_recv() {
+                    Ok(Ok(frame)) => {
+                        if frame.is_data() {
+                            let data_bytes = frame.into_data().unwrap();
+                            if let Ok(data_str) = std::str::from_utf8(&data_bytes) {
+                                for line in data_str.split('\n') {
+                                    let trimmed = line.trim();
+                                    if trimmed.is_empty() {
+                                        continue;
+                                    }
+                                    
+                                    if trimmed.starts_with("data: ") {
+                                        let data_content = trimmed[6..].trim();
+                                        if data_content == "[DONE]" {
+                                            upstream_done = true;
+                                            continue;
+                                        }
+                                        
+                                        if let Ok(json) = serde_json::from_str::<Value>(data_content) {
+                                            got_data = true;
+                                            
+                                            if stream_id.is_none() { stream_id = json.get("id").and_then(|v| v.as_str()).map(|s| s.to_string()); }
+                                            if stream_object.is_none() { stream_object = json.get("object").and_then(|v| v.as_str()).map(|s| s.to_string()); }
+                                            if stream_created.is_none() { stream_created = json.get("created").and_then(|v| v.as_u64()); }
+                                            if stream_model.is_none() { stream_model = json.get("model").and_then(|v| v.as_str()).map(|s| s.to_string()); }
+                                            if stream_provider.is_none() { stream_provider = json.get("provider").and_then(|v| v.as_str()).map(|s| s.to_string()); }
+                                            if stream_system_fingerprint.is_none() { stream_system_fingerprint = json.get("system_fingerprint").and_then(|v| v.as_str()).map(|s| s.to_string()); }
+                                            
+                                            if json.get("error").is_some() {
+                                                error_val = json.get("error").cloned();
+                                            }
+
+                                            if let Some(choices) = json.get("choices").and_then(|c| c.as_array()) {
+                                                for choice in choices {
+                                                    if let Some(delta) = choice.get("delta") {
+                                                        if let Some(c) = delta.get("content").and_then(|v| v.as_str()) {
+                                                            aggregated_content.push_str(c);
+                                                        }
+                                                        if let Some(r) = delta.get("reasoning_content").and_then(|v| v.as_str()) {
+                                                            aggregated_reasoning.push_str(r);
+                                                        }
+                                                    }
+                                                    if let Some(fr) = choice.get("finish_reason").and_then(|v| v.as_str()) {
+                                                        finish_reason = Some(fr.to_string());
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else if trimmed.starts_with('{') {
+                                        if let Ok(json) = serde_json::from_str::<Value>(trimmed) {
+                                            got_data = true;
+                                            if json.get("error").is_some() {
+                                                error_val = json.get("error").cloned();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Ok(Err(_)) => {
+                        upstream_done = true;
+                    }
+                    Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
+                        break;
+                    }
+                    Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
+                        upstream_done = true;
+                        break;
+                    }
+                }
+            }
+
+            if error_val.is_some() {
+                let err_json = serde_json::json!({
+                    "error": error_val.unwrap()
+                });
+                let padded = pad_json_sse(err_json);
+                yield Ok::<_, Infallible>(Frame::data(Bytes::from(padded)));
+                sent_done = true;
+            } else if got_data || !aggregated_content.is_empty() || !aggregated_reasoning.is_empty() || finish_reason.is_some() {
+                let mut json = serde_json::json!({
+                    "choices": [{
+                        "index": 0,
+                        "delta": {}
+                    }]
+                });
+
+                if let Some(ref id) = stream_id { json["id"] = Value::String(id.clone()); }
+                if let Some(ref obj) = stream_object { json["object"] = Value::String(obj.clone()); }
+                if let Some(created) = stream_created { json["created"] = Value::Number(created.into()); }
+                if let Some(ref model) = stream_model { json["model"] = Value::String(model.clone()); }
+                if let Some(ref prov) = stream_provider { json["provider"] = Value::String(prov.clone()); }
+                if let Some(ref fp) = stream_system_fingerprint { json["system_fingerprint"] = Value::String(fp.clone()); }
+
+                let delta = json["choices"][0]["delta"].as_object_mut().unwrap();
+                if !aggregated_content.is_empty() {
+                    delta.insert("content".to_string(), Value::String(aggregated_content));
+                }
+                if !aggregated_reasoning.is_empty() {
+                    delta.insert("reasoning_content".to_string(), Value::String(aggregated_reasoning));
+                }
+                if let Some(fr) = finish_reason {
+                    json["choices"][0]["finish_reason"] = Value::String(fr);
+                }
+
+                let padded = pad_json_sse(json);
+                yield Ok::<_, Infallible>(Frame::data(Bytes::from(padded)));
+            } else {
+                if upstream_done {
+                    let padded = pad_raw_sse("data: [DONE]");
+                    yield Ok::<_, Infallible>(Frame::data(Bytes::from(padded)));
+                    sent_done = true;
+                } else {
+                    let empty_json = serde_json::json!({
+                        "choices": [{
+                            "delta": {}
+                        }]
+                    });
+                    let padded = pad_json_sse(empty_json);
+                    yield Ok::<_, Infallible>(Frame::data(Bytes::from(padded)));
+                }
+            }
+        }
+    })
 }
