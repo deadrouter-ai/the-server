@@ -4,29 +4,29 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "UPPERCASE")]
 pub enum Currency {
     #[default]
-    USD,
-    EUR,
-    JPY,
-    CHF,
+    Usd,
+    Eur,
+    Jpy,
+    Chf,
 }
 
 impl Currency {
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_uppercase().as_str() {
-            "USD" => Some(Currency::USD),
-            "EUR" => Some(Currency::EUR),
-            "JPY" => Some(Currency::JPY),
-            "CHF" => Some(Currency::CHF),
+            "USD" => Some(Currency::Usd),
+            "EUR" => Some(Currency::Eur),
+            "JPY" => Some(Currency::Jpy),
+            "CHF" => Some(Currency::Chf),
             _ => None,
         }
     }
 
-    pub fn to_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
-            Currency::USD => "USD",
-            Currency::EUR => "EUR",
-            Currency::JPY => "JPY",
-            Currency::CHF => "CHF",
+            Currency::Usd => "USD",
+            Currency::Eur => "EUR",
+            Currency::Jpy => "JPY",
+            Currency::Chf => "CHF",
         }
     }
 }
@@ -37,10 +37,10 @@ impl Currency {
 /// 1 USD = 0.90 CHF
 pub fn convert_usd_to(usd_amount: f64, target_currency: Currency) -> f64 {
     match target_currency {
-        Currency::USD => usd_amount,
-        Currency::EUR => usd_amount * 0.96,
-        Currency::CHF => usd_amount * 0.90,
-        Currency::JPY => usd_amount * 200.0,
+        Currency::Usd => usd_amount,
+        Currency::Eur => usd_amount * 0.96,
+        Currency::Chf => usd_amount * 0.90,
+        Currency::Jpy => usd_amount * 200.0,
     }
 }
 

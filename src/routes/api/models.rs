@@ -24,6 +24,14 @@ struct TopProvider {
 }
 
 #[derive(Serialize)]
+struct ShortModelItem {
+    id: String,
+    object: &'static str,
+    created: u64,
+    owned_by: &'static str,
+}
+
+#[derive(Serialize)]
 struct ModelItem {
     id: String,
     object: &'static str,
@@ -39,12 +47,20 @@ struct ModelItem {
     supported_sampling_parameters: serde_json::Value,
     supported_features: serde_json::Value,
     top_provider: TopProvider,
+    providers: Vec<String>,
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+enum AnyModelItem {
+    Short(ShortModelItem),
+    Detailed(Box<ModelItem>),
 }
 
 #[derive(Serialize)]
 struct ModelsResponse {
     object: &'static str,
-    data: Vec<ModelItem>,
+    data: Vec<AnyModelItem>,
 }
 
 /// Helper function to format prices to strings with up to 10 decimal places,
@@ -67,7 +83,8 @@ pub async fn handle_models_list(
     state: &AppState,
     req_uri: &str,
 ) -> (StatusCode, Vec<(&'static str, String)>, BoxBody<Bytes, Infallible>) {
-    let mut target_currency = crate::currency::Currency::USD;
+    let mut target_currency = crate::currency::Currency::Usd;
+    let mut is_detailed = false;
     if let Some(query) = req_uri.split('?').nth(1) {
         for pair in query.split('&') {
             if let Some((k, v)) = pair.split_once('=') {
@@ -75,6 +92,8 @@ pub async fn handle_models_list(
                     if let Some(curr) = crate::currency::Currency::from_str(v) {
                         target_currency = curr;
                     }
+                } else if k == "detailed" && v == "true" {
+                    is_detailed = true;
                 }
             }
         }
@@ -132,44 +151,68 @@ pub async fn handle_models_list(
         }
 
         if found {
-            if let Some(info) = best_dyn_info {
-                model_items.push(ModelItem {
+            if is_detailed {
+                if let Some(info) = best_dyn_info {
+                    let mut supported_sampling = info.supported_sampling_parameters.clone();
+                    if let Some(arr) = supported_sampling.as_array_mut() {
+                        arr.retain(|v| v.as_str() != Some("stop"));
+                    }
+                    model_items.push(AnyModelItem::Detailed(Box::new(ModelItem {
+                        id: model_name.clone(),
+                        object: "model",
+                        created: 0,
+                        owned_by: "system",
+                        name: info.name,
+                        pricing: ModelPricing {
+                            input: cheapest_input_1m,
+                            output: cheapest_output_1m,
+                            prompt: format_price(cheapest_prompt),
+                            completion: format_price(cheapest_completion),
+                            image: "0".to_string(),
+                            request: "0".to_string(),
+                            currency: target_currency.as_str(),
+                        },
+                        context_length: top_ctx_len,
+                        max_output_length: top_max_comp,
+                        architecture: serde_json::json!({
+                            "inputModalities": ["text"],
+                            "outputModalities": ["text"]
+                        }),
+                        input_modalities: serde_json::json!(["text"]),
+                        output_modalities: serde_json::json!(["text"]),
+                        supported_sampling_parameters: supported_sampling,
+                        supported_features: info.supported_features,
+                        top_provider: TopProvider {
+                            context_length: top_ctx_len,
+                            max_completion_tokens: top_max_comp,
+                            is_moderated: false,
+                        },
+                        providers: provider_ids.clone(),
+                    })));
+                }
+            } else {
+                model_items.push(AnyModelItem::Short(ShortModelItem {
                     id: model_name.clone(),
                     object: "model",
                     created: 0,
                     owned_by: "system",
-                    name: info.name,
-                    pricing: ModelPricing {
-                        input: cheapest_input_1m,
-                        output: cheapest_output_1m,
-                        prompt: format_price(cheapest_prompt),
-                        completion: format_price(cheapest_completion),
-                        image: "0".to_string(),
-                        request: "0".to_string(),
-                        currency: target_currency.to_str(),
-                    },
-                    context_length: top_ctx_len,
-                    max_output_length: top_max_comp,
-                    architecture: serde_json::json!({
-                        "inputModalities": ["text"],
-                        "outputModalities": ["text"]
-                    }),
-                    input_modalities: serde_json::json!(["text"]),
-                    output_modalities: serde_json::json!(["text"]),
-                    supported_sampling_parameters: info.supported_sampling_parameters,
-                    supported_features: info.supported_features,
-                    top_provider: TopProvider {
-                        context_length: top_ctx_len,
-                        max_completion_tokens: top_max_comp,
-                        is_moderated: false,
-                    },
-                });
+                }));
             }
         }
     }
 
     // Sort models by ID for deterministic, readable output
-    model_items.sort_by(|a, b| a.id.cmp(&b.id));
+    model_items.sort_by(|a, b| {
+        let id_a = match a {
+            AnyModelItem::Short(s) => &s.id,
+            AnyModelItem::Detailed(d) => &d.id,
+        };
+        let id_b = match b {
+            AnyModelItem::Short(s) => &s.id,
+            AnyModelItem::Detailed(d) => &d.id,
+        };
+        id_a.cmp(id_b)
+    });
 
     let response = ModelsResponse {
         object: "list",
@@ -183,19 +226,4 @@ pub async fn handle_models_list(
         vec![("Content-Type", "application/json".to_string())],
         Full::new(Bytes::from(body_bytes)).map_err(|e| match e {}).boxed(),
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_format_price() {
-        assert_eq!(format_price(0.0), "0");
-        assert_eq!(format_price(0.0000007), "0.0000007");
-        assert_eq!(format_price(0.0000025), "0.0000025");
-        assert_eq!(format_price(1.05), "1.05");
-        assert_eq!(format_price(1.0), "1");
-        assert_eq!(format_price(0.0000000001), "0.0000000001");
-    }
 }

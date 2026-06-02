@@ -105,7 +105,7 @@ pub async fn handle_secure_openai_proxy(
 
     // 2. Parse request body
     let request_body_val = Zeroizing::new(req.body.to_vec());
-    let proxy_req: ChatCompletionRequest = match serde_json::from_slice(&*request_body_val) {
+    let proxy_req: ChatCompletionRequest = match serde_json::from_slice(&request_body_val) {
         Ok(r) => r,
         Err(e) => {
             return json_error(StatusCode::BAD_REQUEST, &format!("Failed to parse request JSON: {}", e));
@@ -154,7 +154,7 @@ pub async fn handle_secure_openai_proxy(
     }
 
     match proxy_req.preference.as_deref() {
-        Some("privacy_rating") => available_providers.sort_by(|a, b| b.privacy_rating.cmp(&a.privacy_rating)),
+        Some("privacy_rating") => available_providers.sort_by_key(|b| std::cmp::Reverse(b.privacy_rating)),
         _ => {
             // Secure shuffle using FIPS-validated aws-lc-rs
             available_providers.sort_by_cached_key(|_| {
@@ -166,7 +166,7 @@ pub async fn handle_secure_openai_proxy(
     }
 
     let chat_id = generate_chat_id();
-    let client_wants_usage = proxy_req.stream_options.as_ref().map_or(false, |o| o.include_usage);
+    let client_wants_usage = proxy_req.stream_options.as_ref().is_some_and(|o| o.include_usage);
 
     let mut last_error = String::from("All providers failed.");
 
@@ -177,7 +177,7 @@ pub async fn handle_secure_openai_proxy(
         // Check if provider is currently heavily rate-limited/failing
         let is_unhealthy = {
             let dyn_state = provider.dynamic_state.read().await;
-            let is_rate_limited = dyn_state.health.rate_limited_until.map_or(false, |timeout_ts| current_ts < timeout_ts);
+            let is_rate_limited = dyn_state.health.rate_limited_until.is_some_and(|timeout_ts| current_ts < timeout_ts);
             is_rate_limited || dyn_state.health.consecutive_errors >= 5
         };
 
@@ -192,6 +192,9 @@ pub async fn handle_secure_openai_proxy(
             }
             "chutes-ai" => {
                 crate::providers::chutes::call_chutes_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone()).await
+            }
+            "redpill" => {
+                crate::providers::redpill::call_redpill_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone()).await
             }
             _ => {
                 Err(format!("Provider {} not implemented.", provider.id))

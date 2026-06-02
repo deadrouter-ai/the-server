@@ -5,6 +5,7 @@ use chacha20::XChaCha20;
 use chacha20::cipher::{KeyIvInit, StreamCipher};
 use poly1305::Poly1305;
 use poly1305::universal_hash::KeyInit;
+use zeroize::Zeroizing;
 
 #[derive(Clone)]
 #[allow(dead_code)]
@@ -21,7 +22,7 @@ struct DnscryptClientState {
     resolver_ip: SocketAddr,
     client_pk_bytes: [u8; 32],
     client_magic: [u8; 8],
-    shared_key: [u8; 32],
+    shared_key: Zeroizing<[u8; 32]>,
     ts_end: u32,
 }
 
@@ -126,15 +127,15 @@ fn xchacha20_djb_poly1305_encrypt(key: &[u8; 32], nonce: &[u8; 24], plaintext: &
     let mut cipher = XChaCha20::new(key.into(), nonce.into());
 
     // 1. Generate the Poly1305 key from the first 32 bytes of the stream
-    let mut poly_key = [0u8; 32];
-    cipher.apply_keystream(&mut poly_key);
+    let mut poly_key = Zeroizing::new([0u8; 32]);
+    cipher.apply_keystream(&mut *poly_key);
 
     // 2. Encrypt the plaintext in place (the cipher automatically continues from byte 32)
     let mut ciphertext = plaintext.to_vec();
     cipher.apply_keystream(&mut ciphertext);
 
     // 3. Compute the unpadded MAC over just the ciphertext
-    let tag = Poly1305::new(&poly_key.into()).compute_unpadded(&ciphertext);
+    let tag = Poly1305::new(&(*poly_key).into()).compute_unpadded(&ciphertext);
 
     // 4. Assemble: Tag || Ciphertext
     let mut result = Vec::with_capacity(16 + ciphertext.len());
@@ -157,11 +158,11 @@ fn xchacha20_djb_poly1305_decrypt(
     let mut cipher = XChaCha20::new(key.into(), nonce.into());
 
     // 1. Extract the Poly1305 key
-    let mut poly_key = [0u8; 32];
-    cipher.apply_keystream(&mut poly_key);
+    let mut poly_key = Zeroizing::new([0u8; 32]);
+    cipher.apply_keystream(&mut *poly_key);
 
     // 2. Verify the tag
-    let computed_tag = Poly1305::new(&poly_key.into()).compute_unpadded(ciphertext);
+    let computed_tag = Poly1305::new(&(*poly_key).into()).compute_unpadded(ciphertext);
 
     if aws_lc_rs::constant_time::verify_slices_are_equal(&computed_tag[..], tag).is_err() {
         return Err("Poly1305 authentication failed".to_string());
@@ -431,7 +432,7 @@ async fn establish_dnscrypt_session() -> Result<DnscryptClientState, String> {
 
                     let peer_pk =
                         agreement::UnparsedPublicKey::new(&agreement::X25519, &cert.resolver_pk);
-                    let mut raw_shared_secret = [0u8; 32];
+                    let mut raw_shared_secret = Zeroizing::new([0u8; 32]);
                     agreement::agree_ephemeral(
                         client_sk,
                         &peer_pk,
@@ -447,7 +448,7 @@ async fn establish_dnscrypt_session() -> Result<DnscryptClientState, String> {
                     )
                     .map_err(|e| format!("X25519 agreement failed: {:?}", e))?;
 
-                    let shared_key = run_hchacha20(&raw_shared_secret, &[0u8; 16]);
+                    let shared_key = Zeroizing::new(run_hchacha20(&*raw_shared_secret, &[0u8; 16]));
 
                     return Ok(DnscryptClientState {
                         resolver_ip: resolver.ip,
@@ -627,7 +628,7 @@ async fn resolve_domain_via_dnscrypt_session(
     query_nonce[0..12].copy_from_slice(&client_nonce);
 
     let encrypted_query =
-        xchacha20_djb_poly1305_encrypt(&session.shared_key, &query_nonce, &padded_query);
+        xchacha20_djb_poly1305_encrypt(&*session.shared_key, &query_nonce, &padded_query);
 
     let mut request_packet = Vec::with_capacity(8 + 32 + 12 + encrypted_query.len());
     request_packet.extend_from_slice(&session.client_magic);
@@ -655,7 +656,7 @@ async fn resolve_domain_via_dnscrypt_session(
 
     let encrypted_response = &response_packet[32..];
     let decrypted = xchacha20_djb_poly1305_decrypt(
-        &session.shared_key,
+        &*session.shared_key,
         &resp_nonce,
         encrypted_response,
     )?;

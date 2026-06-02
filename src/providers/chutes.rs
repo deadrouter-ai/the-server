@@ -22,7 +22,7 @@ use serde_json::Value;
 use std::io::{Read, Write};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use zeroize::Zeroize;
+use zeroize::Zeroizing;
 
 use super::utiles::gen_random_bytes;
 
@@ -44,14 +44,14 @@ const INFO_STREAM: &[u8] = b"e2e-stream-v1";
 /// Uses the first 16 bytes of the ML-KEM ciphertext as salt (matching the
 /// reference implementation) and a purpose-specific info string for domain
 /// separation between request, response, and stream keys.
-fn derive_key(shared_secret: &[u8], mlkem_ct: &[u8], info: &[u8]) -> Result<[u8; 32], String> {
+fn derive_key(shared_secret: &[u8], mlkem_ct: &[u8], info: &[u8]) -> Result<Zeroizing<[u8; 32]>, String> {
     let salt_bytes = &mlkem_ct[..16.min(mlkem_ct.len())];
     let salt = Salt::new(HKDF_SHA256, salt_bytes);
     let prk = salt.extract(shared_secret);
     let info_arr = [info];
     let okm = prk.expand(&info_arr, HKDF_SHA256).map_err(|_| "HKDF expand failed")?;
-    let mut key = [0u8; 32];
-    okm.fill(&mut key).map_err(|_| "HKDF fill failed")?;
+    let mut key = Zeroizing::new([0u8; 32]);
+    okm.fill(&mut *key).map_err(|_| "HKDF fill failed")?;
     Ok(key)
 }
 
@@ -148,7 +148,7 @@ pub fn build_e2ee_request(
         .map_err(|_| "ML-KEM-768 encapsulation failed")?;
 
     // 3. Derive request symmetric key
-    let mut sym_key = derive_key(shared_secret.as_ref(), mlkem_ct.as_ref(), INFO_REQ)?;
+    let sym_key = derive_key(shared_secret.as_ref(), mlkem_ct.as_ref(), INFO_REQ)?;
 
     // 4. Inject client's response public key into payload
     let mut payload_with_pk = payload.clone();
@@ -162,15 +162,12 @@ pub fn build_e2ee_request(
     let compressed = gzip_compress(&json_bytes)?;
 
     // 6. Encrypt with ChaCha20-Poly1305
-    let encrypted = chacha_encrypt(&sym_key, &compressed)?;
+    let encrypted = chacha_encrypt(&*sym_key, &compressed)?;
 
     // 7. Build final blob: [ML-KEM CT] [encrypted (nonce + ciphertext + tag)]
     let mut blob = Vec::with_capacity(MLKEM_CT_SIZE + encrypted.len());
     blob.extend_from_slice(mlkem_ct.as_ref());
     blob.extend_from_slice(&encrypted);
-
-    // Zeroize sensitive material
-    sym_key.zeroize();
 
     Ok(ChutesE2eeRequest {
         blob,
@@ -203,11 +200,10 @@ pub fn decrypt_response(
         .map_err(|_| "ML-KEM-768 decapsulation failed")?;
 
     // Derive response key
-    let mut sym_key = derive_key(shared_secret.as_ref(), mlkem_ct, INFO_RESP)?;
+    let sym_key = derive_key(shared_secret.as_ref(), mlkem_ct, INFO_RESP)?;
 
     // Decrypt
-    let compressed = chacha_decrypt(&sym_key, encrypted)?;
-    sym_key.zeroize();
+    let compressed = chacha_decrypt(&*sym_key, encrypted)?;
 
     // Decompress
     let json_bytes = gzip_decompress(&compressed)?;
@@ -227,7 +223,7 @@ pub fn decrypt_response(
 pub fn decrypt_stream_init(
     response_sk: &DecapsulationKey,
     mlkem_ct_b64: &str,
-) -> Result<[u8; 32], String> {
+) -> Result<Zeroizing<[u8; 32]>, String> {
     let mlkem_ct_bytes = Base64::decode_vec(mlkem_ct_b64)
         .map_err(|_| "Invalid base64 in e2e_init ML-KEM ciphertext")?;
 
@@ -538,7 +534,7 @@ pub async fn verify_chutes_tee_evidence(
 
         // Verify ML-KEM public key binding in report_data
         let report_data = &quote_bytes[568..632];
-        if &report_data[0..32] != expected_hash.as_ref() {
+        if aws_lc_rs::constant_time::verify_slices_are_equal(&report_data[0..32], expected_hash.as_ref()).is_err() {
             eprintln!("WARNING: ML-KEM pubkey binding verification failed for instance {}", expected_inst.instance_id);
             continue;
         }
@@ -667,7 +663,9 @@ pub async fn verify_chutes_tee_evidence(
 
         // GPU nonce must match
         let eat_nonce = gpu_claims.get("eat_nonce").and_then(|v| v.as_str()).unwrap_or("");
-        if !eat_nonce.eq_ignore_ascii_case(&hashed_nonce_hex) {
+        let mut eat_nonce_bytes = [0u8; 32];
+        if hex::decode_to_slice(eat_nonce, &mut eat_nonce_bytes).is_err() ||
+           aws_lc_rs::constant_time::verify_slices_are_equal(&eat_nonce_bytes, expected_hash.as_ref()).is_err() {
             eprintln!("WARNING: NVIDIA GPU nonce mismatch on instance {}", expected_inst.instance_id);
             continue;
         }
@@ -938,7 +936,7 @@ async fn process_chutes_response(
             let mut line = String::new();
             let mut total_input_tokens = 0.0;
             let mut total_output_tokens = 0.0;
-            let mut stream_key: Option<[u8; 32]> = None;
+            let mut stream_key: Option<Zeroizing<[u8; 32]>> = None;
 
             loop {
                 line.clear();
@@ -977,7 +975,7 @@ async fn process_chutes_response(
                                         break;
                                     }
                                 };
-                                match decrypt_stream_chunk(enc_chunk, sk) {
+                                match decrypt_stream_chunk(enc_chunk, &**sk) {
                                     Ok(decrypted_sse) => {
                                         let sse_content = decrypted_sse.trim();
                                         let json_str = if sse_content.starts_with("data: ") {
