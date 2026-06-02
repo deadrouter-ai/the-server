@@ -22,6 +22,7 @@ mod quic_h3;
 mod connections;
 mod routes;
 mod currency;
+pub mod crypto_e2ee;
 
 use mimalloc::MiMalloc;
 
@@ -39,7 +40,7 @@ async fn main() {
         println!("[info] Payload measurement: {}", hash);
     }
 
-    let is_dev = std::env::var("DEVELOPMENT").unwrap_or_else(|_| "false".to_string()) == "true";
+    let is_dev = cfg!(feature = "development");
     let tls_port = if is_dev { 5443 } else { 443 };
     let http_port = if is_dev { 5001 } else { 80 };
 
@@ -80,7 +81,7 @@ async fn main() {
     };
 
     let chutes_ai = ProviderConfig {
-        id: "chutes-ai".to_string(),
+        id: "chutes".to_string(),
         endpoint: "https://llm.chutes.ai/v1/chat/completions".to_string(),
         api_key: chutes_key,
         privacy_rating: 5,
@@ -134,6 +135,7 @@ async fn main() {
     let near_ai_client = reqwest::ClientBuilder::new()
         .use_preconfigured_tls(near_tls_config)
         .dns_resolver(custom_resolver.clone())
+        .timeout(std::time::Duration::from_secs(45))
         .build()
         .expect("Failed to build Near AI reqwest client");
 
@@ -151,8 +153,19 @@ async fn main() {
     let http_client = reqwest::ClientBuilder::new()
         .use_preconfigured_tls(global_tls)
         .dns_resolver(custom_resolver)
+        .timeout(std::time::Duration::from_secs(45))
         .build()
         .expect("Failed to build Global HTTP client");
+    let ticket_secrets = Arc::new(tokio::sync::RwLock::new(crypto_e2ee::TicketSecrets::new()));
+    let ticket_secrets_clone = ticket_secrets.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(300)).await; // 5 minutes
+            let mut secrets = ticket_secrets_clone.write().await;
+            secrets.rotate();
+            println!("[INFO] E2EE Ticket Master Secret rotated.");
+        }
+    });
 
     let state = Arc::new(AppState::new(
         http_client,
@@ -161,6 +174,7 @@ async fn main() {
         observed_spki,
         providers,
         routing_table,
+        ticket_secrets,
     ));
 
     // ---- Spawn Dynamic Pricing background update tasks ----

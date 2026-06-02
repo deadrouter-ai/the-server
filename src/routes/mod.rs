@@ -82,6 +82,11 @@ pub async fn router(
             crate::routes::api::models::handle_models_list(state, &req.uri.to_string()).await
         }
 
+        // ---- Keys ----
+        (Method::GET, "/v1/keys/ephemeral") | (Method::POST, "/v1/keys/ephemeral") => {
+            crate::routes::api::keys::handle_keys_ephemeral(state).await
+        }
+
         // ---- Landing page ----
         (Method::GET, "/") => {
             let (status, headers, body) = crate::routes::handle_landing_page(state, req);

@@ -22,6 +22,7 @@ pub fn sanitize_and_spoof_response(
     markup: f64,
     total_input_tokens: &mut f64,
     total_output_tokens: &mut f64,
+    mut e2ee_ratchet: Option<&mut crate::crypto_e2ee::StreamRatchet>,
 ) -> Value {
     let mut new_root = serde_json::Map::new();
 
@@ -53,12 +54,24 @@ pub fn sanitize_and_spoof_response(
                     if let Some(Value::Object(mut msg_obj)) = choice_obj.remove("message") {
                         let mut clean_msg = serde_json::Map::new();
                         let reasoning_val = msg_obj.remove("reasoning").or_else(|| msg_obj.remove("reasoning_content"));
-                        if let Some(r) = reasoning_val {
+                        if let Some(mut r) = reasoning_val {
+                            if let Some(ref mut ratchet) = e2ee_ratchet {
+                                if let Some(s) = r.as_str() {
+                                    r = Value::String(ratchet.encrypt_chunk(s.as_bytes()));
+                                }
+                            }
                             clean_msg.insert("reasoning_content".to_string(), r);
                         }
                         let allowed_msg_fields = ["role", "content", "tool_calls", "function_call", "refusal"];
                         for field in allowed_msg_fields {
-                            if let Some(val) = msg_obj.remove(field) {
+                            if let Some(mut val) = msg_obj.remove(field) {
+                                if field == "content" {
+                                    if let Some(ref mut ratchet) = e2ee_ratchet {
+                                        if let Some(s) = val.as_str() {
+                                            val = Value::String(ratchet.encrypt_chunk(s.as_bytes()));
+                                        }
+                                    }
+                                }
                                 clean_msg.insert(field.to_string(), val);
                             }
                         }
@@ -68,12 +81,24 @@ pub fn sanitize_and_spoof_response(
                     if let Some(Value::Object(mut delta_obj)) = choice_obj.remove("delta") {
                         let mut clean_delta = serde_json::Map::new();
                         let reasoning_val = delta_obj.remove("reasoning").or_else(|| delta_obj.remove("reasoning_content"));
-                        if let Some(r) = reasoning_val {
+                        if let Some(mut r) = reasoning_val {
+                            if let Some(ref mut ratchet) = e2ee_ratchet {
+                                if let Some(s) = r.as_str() {
+                                    r = Value::String(ratchet.encrypt_chunk(s.as_bytes()));
+                                }
+                            }
                             clean_delta.insert("reasoning_content".to_string(), r);
                         }
                         let allowed_delta_fields = ["role", "content", "tool_calls", "function_call", "refusal"];
                         for field in allowed_delta_fields {
-                            if let Some(val) = delta_obj.remove(field) {
+                            if let Some(mut val) = delta_obj.remove(field) {
+                                if field == "content" {
+                                    if let Some(ref mut ratchet) = e2ee_ratchet {
+                                        if let Some(s) = val.as_str() {
+                                            val = Value::String(ratchet.encrypt_chunk(s.as_bytes()));
+                                        }
+                                    }
+                                }
                                 clean_delta.insert(field.to_string(), val);
                             }
                         }
@@ -89,8 +114,7 @@ pub fn sanitize_and_spoof_response(
         if let Some(Value::Object(mut usage)) = obj.remove("usage") {
             let mut new_usage = serde_json::Map::new();
             let allowed_usage_fields = [
-                "prompt_tokens", "completion_tokens", "total_tokens",
-                "prompt_tokens_details", "completion_tokens_details"
+                "prompt_tokens", "completion_tokens", "total_tokens"
             ];
 
             for field in allowed_usage_fields {
@@ -109,7 +133,11 @@ pub fn sanitize_and_spoof_response(
             let custom_cost = ((prompt / 1_000_000.0) * price_input + (completion / 1_000_000.0) * price_output) * markup_factor;
 
             let rounded_cost = (custom_cost * 10_000_000_000.0).round() / 10_000_000_000.0;
-            if let Some(num) = serde_json::Number::from_f64(rounded_cost) {
+            let formatted_cost = format!("{:.8}", rounded_cost);
+            let formatted_cost = formatted_cost.trim_end_matches('0').trim_end_matches('.');
+            let formatted_cost = if formatted_cost.is_empty() { "0.0" } else { formatted_cost };
+            
+            if let Ok(num) = formatted_cost.parse::<serde_json::Number>() {
                 new_usage.insert("cost".to_string(), Value::Number(num));
             } else {
                 new_usage.insert("cost".to_string(), Value::Number(serde_json::Number::from(0)));
@@ -158,6 +186,7 @@ pub fn pad_raw_sse(line: &str) -> String {
 
 pub fn wrap_stream_with_timing_padding<S>(
     mut upstream_stream: S,
+    e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
 ) -> std::pin::Pin<Box<dyn Stream<Item = Result<Frame<Bytes>, Infallible>> + Send + Sync>>
 where
     S: Stream<Item = Result<Frame<Bytes>, Infallible>> + Send + Sync + Unpin + 'static,
@@ -185,6 +214,8 @@ where
 
     let mut upstream_done = false;
     let mut sent_done = false;
+
+    let mut ratchet = e2ee_session.as_ref().map(|s| s.get_stream_ratchet());
 
     Box::pin(async_stream::stream! {
         loop {
@@ -302,10 +333,18 @@ where
 
                 let delta = json["choices"][0]["delta"].as_object_mut().unwrap();
                 if !aggregated_content.is_empty() {
-                    delta.insert("content".to_string(), Value::String(aggregated_content));
+                    let mut final_content = aggregated_content;
+                    if let Some(ref mut r) = ratchet {
+                        final_content = r.encrypt_chunk(final_content.as_bytes());
+                    }
+                    delta.insert("content".to_string(), Value::String(final_content));
                 }
                 if !aggregated_reasoning.is_empty() {
-                    delta.insert("reasoning_content".to_string(), Value::String(aggregated_reasoning));
+                    let mut final_reasoning = aggregated_reasoning;
+                    if let Some(ref mut r) = ratchet {
+                        final_reasoning = r.encrypt_chunk(final_reasoning.as_bytes());
+                    }
+                    delta.insert("reasoning_content".to_string(), Value::String(final_reasoning));
                 }
                 if let Some(fr) = finish_reason {
                     json["choices"][0]["finish_reason"] = Value::String(fr);

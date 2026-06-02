@@ -6,6 +6,7 @@ use http_body_util::{combinators::BoxBody, BodyExt, Full};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use zeroize::Zeroizing;
+use base64ct::Encoding;
 
 use crate::AppState;
 use crate::providers::utiles::generate_chat_id;
@@ -105,13 +106,75 @@ pub async fn handle_secure_openai_proxy(
 
     // 2. Parse request body
     let request_body_val = Zeroizing::new(req.body.to_vec());
-    let proxy_req: ChatCompletionRequest = match serde_json::from_slice(&request_body_val) {
+    let mut proxy_req: ChatCompletionRequest = match serde_json::from_slice(&request_body_val) {
         Ok(r) => r,
         Err(e) => {
             return json_error(StatusCode::BAD_REQUEST, &format!("Failed to parse request JSON: {}", e));
         }
     };
     drop(request_body_val);
+
+    // E2EE Decryption
+    let e2ee_enabled = req.headers.get("x-e2ee-enabled").map(|s| s.as_str()) == Some("true");
+
+    let toggles_aad = {
+        let mut s = String::new();
+        if let Some(zdr) = proxy_req.zdr { s.push_str(&format!("zdr={};", zdr)); }
+        if let Some(zds) = proxy_req.zds { s.push_str(&format!("zds={};", zds)); }
+        if let Some(tee) = proxy_req.tee { s.push_str(&format!("tee={};", tee)); }
+        s
+    };
+
+    if e2ee_enabled {
+        if proxy_req.zdr.is_none() { proxy_req.zdr = Some(true); }
+        if proxy_req.zds.is_none() { proxy_req.zds = Some(true); }
+        if proxy_req.tee.is_none() { proxy_req.tee = Some(true); }
+    }
+
+    let mut e2ee_session: Option<crate::crypto_e2ee::E2eeSession> = None;
+    if let Some(kx_algo) = req.headers.get("x-kx-algo") {
+        if kx_algo == "X25519" {
+            if let (Some(client_pub_b64), Some(server_ticket)) = (req.headers.get("x-client-pub-key"), req.headers.get("x-server-ticket")) {
+                let ticket_secrets = state.ticket_secrets.read().await;
+                if let Ok(server_static) = crate::crypto_e2ee::decrypt_ticket(&ticket_secrets, server_ticket) {
+                    if let Ok(client_pub_bytes) = base64ct::Base64::decode_vec(client_pub_b64) {
+                        if client_pub_bytes.len() == 32 {
+                            let mut pub_arr = [0u8; 32];
+                            pub_arr.copy_from_slice(&client_pub_bytes);
+                            
+                            let session = crate::crypto_e2ee::E2eeSession::new(server_static, &pub_arr, proxy_req.model.clone());
+                            
+                            // Decrypt messages
+                            let mut all_decrypted = true;
+                            for (i, msg) in proxy_req.messages.iter_mut().enumerate() {
+                                match session.decrypt_message(i, &msg.role, &msg.content, &toggles_aad) {
+                                    Ok(plaintext) => {
+                                        msg.content = plaintext;
+                                    }
+                                    Err(_) => {
+                                        all_decrypted = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if all_decrypted {
+                                e2ee_session = Some(session);
+                            } else {
+                                return json_error(StatusCode::BAD_REQUEST, "E2EE Decryption of messages failed.");
+                            }
+                        }
+                    }
+                } else {
+                    return json_error(StatusCode::UNAUTHORIZED, "E2EE Ticket expired or invalid.");
+                }
+            }
+        }
+    }
+    
+    if e2ee_enabled && e2ee_session.is_none() {
+        return json_error(StatusCode::BAD_REQUEST, "E2EE is strictly enforced but decryption or key exchange failed/was not provided.");
+    }
 
     // 3. Resolve provider
     let model_name = proxy_req.model.to_lowercase();
@@ -170,6 +233,7 @@ pub async fn handle_secure_openai_proxy(
 
     let mut last_error = String::from("All providers failed.");
 
+    let e2ee_session = e2ee_session.map(std::sync::Arc::new);
     // ── Routing Execution ──
     for provider in available_providers {
         let current_ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
@@ -177,8 +241,7 @@ pub async fn handle_secure_openai_proxy(
         // Check if provider is currently heavily rate-limited/failing
         let is_unhealthy = {
             let dyn_state = provider.dynamic_state.read().await;
-            let is_rate_limited = dyn_state.health.rate_limited_until.is_some_and(|timeout_ts| current_ts < timeout_ts);
-            is_rate_limited || dyn_state.health.consecutive_errors >= 5
+            dyn_state.health.rate_limited_until.is_some_and(|timeout_ts| current_ts < timeout_ts)
         };
 
         if is_unhealthy {
@@ -188,13 +251,13 @@ pub async fn handle_secure_openai_proxy(
         // Dispatch based on provider ID
         let result = match provider.id.as_str() {
             "near-ai" => {
-                call_near_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone()).await
+                call_near_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await
             }
             "chutes-ai" => {
-                crate::providers::chutes::call_chutes_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone()).await
+                crate::providers::chutes::call_chutes_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await
             }
             "redpill" => {
-                crate::providers::redpill::call_redpill_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone()).await
+                crate::providers::redpill::call_redpill_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await
             }
             _ => {
                 Err(format!("Provider {} not implemented.", provider.id))
@@ -233,8 +296,7 @@ pub async fn handle_secure_openai_proxy(
                 let mut dyn_state = provider.dynamic_state.write().await;
                 dyn_state.health.consecutive_errors += 1;
                 let errors = dyn_state.health.consecutive_errors;
-                let cooldown_minutes = std::cmp::min(errors * 5, 60); 
-                let cooldown_seconds = (cooldown_minutes * 60) as u64;
+                let cooldown_seconds = std::cmp::min(30 + (errors * 5), 60) as u64;
                 let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
                 dyn_state.health.rate_limited_until = Some(now + cooldown_seconds);
 

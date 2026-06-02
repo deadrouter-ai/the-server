@@ -86,6 +86,7 @@ pub async fn call_redpill_ai(
     chat_id: String,
     _client_wants_usage: bool,
     frontend_requested_model: String,
+    e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
     if proxy_req.stream { proxy_req.stream_options = Some(crate::routes::api::chat_completions::StreamOptions { include_usage: true }); }
 
@@ -109,7 +110,14 @@ pub async fn call_redpill_ai(
     let resp = req.send().await.map_err(|e| format!("Network error: {}", e))?;
 
     if !resp.status().is_success() {
-        return Err(format!("Upstream error: {} - {}", resp.status(), resp.text().await.unwrap_or_default()));
+        let status = resp.status();
+        let mut body_text = resp.text().await.unwrap_or_default();
+        if body_text.len() > 150 {
+            body_text.truncate(147);
+            body_text.push_str("...");
+        }
+        let cleaned_body = body_text.replace("\r", "").replace("\n", " ");
+        return Err(format!("Upstream error: {} - {}", status, cleaned_body));
     }
 
     let markup = provider.markup;
@@ -139,7 +147,8 @@ pub async fn call_redpill_ai(
                                     let sanitized = sanitize_and_spoof_response(
                                         json, &chat_id, &frontend_requested_model, &provider_id,
                                         price_input, price_output, markup,
-                                        &mut total_in, &mut total_out
+                                        &mut total_in, &mut total_out,
+                                        None
                                     );
                                     let new_line = serde_json::to_string(&sanitized).unwrap_or_default();
                                     final_out.push_str(&format!("data: {}\n\n", new_line));
@@ -164,10 +173,12 @@ pub async fn call_redpill_ai(
         if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&body_bytes) {
              let mut total_in = 0.0;
              let mut total_out = 0.0;
+             let mut ratchet = e2ee_session.as_ref().map(|s| s.get_stream_ratchet());
              let sanitized = sanitize_and_spoof_response(
                  json, &chat_id, &frontend_requested_model, &provider_id,
                  price_input, price_output, markup,
-                 &mut total_in, &mut total_out
+                 &mut total_in, &mut total_out,
+                 ratchet.as_mut()
              );
              let new_body = serde_json::to_vec(&sanitized).unwrap_or(body_bytes.to_vec());
              Ok(BodyExt::boxed(Full::new(Bytes::from(new_body)).map_err(|e| match e {})))

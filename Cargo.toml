@@ -58,7 +58,8 @@ dcap-qvl = "0.5"
 flate2 = "1"
 
 [features]
-# Declared to silence the `unexpected_cfgs` warnings from our local quic_h3.rs bridge
+default = []
+development = []
 tracing = []
 
 [profile.release]

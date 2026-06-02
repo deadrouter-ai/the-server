@@ -612,6 +612,7 @@ fn get_hardcoded_endpoints() -> Value {
 /// tracks token usage, un-pads timing countermeasures, and handles connection healing.
 async fn process_near_ai_response(
     resp: reqwest::Response,
+    provider: Arc<ProviderConfig>,
     is_streaming: bool,
     client_wants_usage: bool,
     chat_id: String,
@@ -620,12 +621,13 @@ async fn process_near_ai_response(
     price_input_1m: f64,
     price_output_1m: f64,
     client_secret: Zeroizing<[u8; 32]>,
-    provider: Arc<ProviderConfig>,
+    e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
     if is_streaming {
         let stream_err_mapper = resp.bytes_stream().map(|res| res.map_err(|e| IoError::new(std::io::ErrorKind::Other, e)));
         let mut stream_reader = BufReader::new(StreamReader::new(stream_err_mapper));
         let provider_clone = provider.clone();
+        let client_secret_clone = client_secret.clone();
 
         let stream = async_stream::stream! {
             let mut line = String::new();
@@ -670,7 +672,7 @@ async fn process_near_ai_response(
                                                 if let Some(delta) = choice.get_mut("delta").and_then(|d| d.as_object_mut()) {
                                                     if let Some(enc_content) = delta.get("content").and_then(|v| v.as_str()) {
                                                         if enc_content.len() >= 112 {
-                                                            match v2_decrypt(enc_content, &client_secret) {
+                                                            match v2_decrypt(enc_content, &client_secret_clone) {
                                                                 Ok(plain) => {
                                                                     delta.insert("content".to_string(), Value::String(plain));
                                                                 }
@@ -683,7 +685,7 @@ async fn process_near_ai_response(
                                                     }
                                                     if let Some(enc_reasoning) = delta.get("reasoning_content").and_then(|v| v.as_str()) {
                                                         if enc_reasoning.len() >= 112 {
-                                                            match v2_decrypt(enc_reasoning, &client_secret) {
+                                                            match v2_decrypt(enc_reasoning, &client_secret_clone) {
                                                                 Ok(plain) => {
                                                                     delta.insert("reasoning_content".to_string(), Value::String(plain));
                                                                 }
@@ -701,7 +703,8 @@ async fn process_near_ai_response(
                                         if !is_corrupt {
                                             let sanitized_json = sanitize_and_spoof_response(
                                                 json, &chat_id, &requested_model, &provider_id,
-                                                price_input_1m, price_output_1m, provider.markup, &mut total_input_tokens, &mut total_output_tokens
+                                                price_input_1m, price_output_1m, provider.markup, &mut total_input_tokens, &mut total_output_tokens,
+                                                None
                                             );
 
                                             if !is_usage_chunk || client_wants_usage {
@@ -765,7 +768,7 @@ async fn process_near_ai_response(
             }
         };
 
-        let wrapped = wrap_stream_with_timing_padding(Box::pin(stream));
+        let wrapped = wrap_stream_with_timing_padding(Box::pin(stream), e2ee_session);
         Ok(BodyExt::boxed(StreamBody::new(wrapped)))
             
     } else {
@@ -803,9 +806,11 @@ async fn process_near_ai_response(
                 let mut in_tok = 0.0;
                 let mut out_tok = 0.0;
 
+                let mut ratchet = e2ee_session.as_ref().map(|s| s.get_stream_ratchet());
                 let mut sanitized_json = sanitize_and_spoof_response(
                     json_resp, &chat_id, &requested_model, &provider_id,
-                    price_input_1m, price_output_1m, provider.markup, &mut in_tok, &mut out_tok
+                    price_input_1m, price_output_1m, provider.markup, &mut in_tok, &mut out_tok,
+                    ratchet.as_mut()
                 );
 
                 mark_provider_healthy(&provider).await;
@@ -842,6 +847,7 @@ pub async fn call_near_ai(
     chat_id: String,
     client_wants_usage: bool,
     frontend_requested_model: String,
+    e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
     if proxy_req.stream { proxy_req.stream_options = Some(StreamOptions { include_usage: true }); }
 
@@ -910,7 +916,7 @@ pub async fn call_near_ai(
 
     // E2EE Encryption
     proxy_req.model = upstream_model_name;
-    let session = E2eeSession::new();
+    let upstream_session = E2eeSession::new();
     
     // Encrypt sensitive content immediately
     for msg in proxy_req.messages.iter_mut() {
@@ -927,7 +933,7 @@ pub async fn call_near_ai(
         .header("Authorization", format!("Bearer {}", provider.api_key))
         .header("Content-Type", "application/json")
         .header("X-Signing-Algo", "ed25519")
-        .header("X-Client-Pub-Key", &session.client_pub_hex)
+        .header("X-Client-Pub-Key", &upstream_session.client_pub_hex)
         .header("X-Encryption-Version", "2")
         .body(req_body.to_vec())
         .send()
@@ -944,6 +950,7 @@ pub async fn call_near_ai(
 
     process_near_ai_response(
         upstream_req,
+        provider.clone(),
         proxy_req.stream,
         client_wants_usage,
         chat_id,
@@ -951,7 +958,7 @@ pub async fn call_near_ai(
         provider.id.clone(),
         price_input,
         price_output,
-        session.x25519_secret,
-        provider.clone(),
+        upstream_session.x25519_secret,
+        e2ee_session,
     ).await
 }

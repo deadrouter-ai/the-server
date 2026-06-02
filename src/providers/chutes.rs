@@ -760,6 +760,7 @@ pub async fn call_chutes_ai(
     chat_id: String,
     client_wants_usage: bool,
     frontend_requested_model: String,
+    e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
 ) -> Result<BoxBody<Bytes, std::convert::Infallible>, String> {
     if proxy_req.stream { proxy_req.stream_options = Some(StreamOptions { include_usage: true }); }
 
@@ -909,7 +910,8 @@ pub async fn call_chutes_ai(
             frontend_requested_model, provider.id.clone(),
             price_input_1m, price_output_1m,
             e2ee_req.response_sk,
-            provider.markup
+            provider.markup,
+            e2ee_session,
         ).await;
     }
 
@@ -927,6 +929,7 @@ async fn process_chutes_response(
     price_output_1m: f64,
     response_sk: DecapsulationKey,
     markup: f64,
+    e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
 ) -> Result<BoxBody<Bytes, std::convert::Infallible>, String> {
     if is_streaming {
         let stream_err_mapper = resp.bytes_stream().map(|res| res.map_err(|e| IoError::new(std::io::ErrorKind::Other, e)));
@@ -991,7 +994,8 @@ async fn process_chutes_response(
                                             let sanitized = sanitize_and_spoof_response(
                                                 json, &chat_id, &requested_model, &provider_id,
                                                 price_input_1m, price_output_1m, markup,
-                                                &mut total_input_tokens, &mut total_output_tokens
+                                                &mut total_input_tokens, &mut total_output_tokens,
+                                                None
                                             );
 
                                             if !is_usage_chunk || client_wants_usage {
@@ -1009,7 +1013,8 @@ async fn process_chutes_response(
                                 let sanitized = sanitize_and_spoof_response(
                                     event, &chat_id, &requested_model, &provider_id,
                                     price_input_1m, price_output_1m, markup,
-                                    &mut total_input_tokens, &mut total_output_tokens
+                                    &mut total_input_tokens, &mut total_output_tokens,
+                                    None
                                 );
                                 if client_wants_usage {
                                     let chunk = format!("data: {}\n\n", serde_json::to_string(&sanitized).unwrap());
@@ -1027,7 +1032,7 @@ async fn process_chutes_response(
             }
         };
 
-        let wrapped = wrap_stream_with_timing_padding(Box::pin(stream));
+        let wrapped = wrap_stream_with_timing_padding(Box::pin(stream), e2ee_session);
         Ok(BodyExt::boxed(StreamBody::new(wrapped)))
     } else {
         let resp_bytes = resp.bytes().await.map_err(|e| format!("Failed to read response: {}", e))?;
@@ -1035,10 +1040,12 @@ async fn process_chutes_response(
         let mut total_in = 0.0;
         let mut total_out = 0.0;
         
+        let mut ratchet = e2ee_session.as_ref().map(|s| s.get_stream_ratchet());
         let sanitized = sanitize_and_spoof_response(
             decrypted_json, &chat_id, &requested_model, &provider_id,
             price_input_1m, price_output_1m, markup,
-            &mut total_in, &mut total_out
+            &mut total_in, &mut total_out,
+            ratchet.as_mut()
         );
         
         let body_bytes = serde_json::to_vec(&sanitized).unwrap();
