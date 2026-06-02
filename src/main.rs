@@ -19,21 +19,21 @@ use bytes::Bytes;
 use hyper::{Method, Uri, StatusCode};
 use http_body_util::{combinators::BoxBody, BodyExt, Full};
 use std::convert::Infallible;
+use serde_json::Value;
 
 mod providers;
 mod dns;
 mod quic_h3;
 mod connections;
 mod routes;
-mod time;
+mod currency;
 
 use mimalloc::MiMalloc;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
-// AppState is defined below under Provider Configurations.
-
+/// Holds Onion domain name and self-signed TLS certificates for Onion Services.
 pub struct OnionData {
     pub onion_domain: String,
     pub onion_https_cert: String,
@@ -50,40 +50,92 @@ impl OnionData {
 
 // ── Models and Provider Configurations ───────────────────────────────────────
 
-#[derive(Debug, Clone)]
-pub struct ModelConfig {
-    pub upstream_model_name: String,
-    pub price_input_1m: f64,
-    pub price_output_1m: f64,
-    pub direct_endpoint: Option<String>,
-}
+// ModelConfig has been removed in favor of dynamic parsing.
 
+/// Cached attestation keys for a provider model.
+///
+/// This structure stores the Ed25519-derived X25519 key bytes used to 
+/// construct a shared secret for End-to-End Encryption (E2EE). To prevent 
+/// excessive attestation validation delays, keys are cached until `expires_at`.
 #[derive(Debug, Clone)]
 pub struct CachedModelKey {
     pub expires_at: u64,
     pub x25519_bytes: [u8; 32],
 }
 
+/// Health and status information for a downstream provider.
+///
+/// Tracks the error rate and timeout status of a provider. If `consecutive_errors` 
+/// exceeds the threshold, `rate_limited_until` will be set, effectively isolating
+/// the provider from the router loop until the penalty expires.
 #[derive(Debug, Default)]
 pub struct ProviderHealthState {
     pub consecutive_errors: u32,
     pub rate_limited_until: Option<u64>,
 }
 
+/// Represents dynamically fetched configuration for a specific AI model.
+/// 
+/// These properties are scraped dynamically from the provider's `/v1/models`
+/// endpoint, allowing the enclave to adapt to newly added models automatically 
+/// without needing hardcoded schema definitions.
+#[derive(Debug, Clone)]
+pub struct DynamicModelInfo {
+    pub upstream_model_name: String,
+    pub name: String,
+    pub price_input_1m: f64,
+    pub price_output_1m: f64,
+    pub context_length: u64,
+    pub max_completion_tokens: u64,
+    pub supported_sampling_parameters: serde_json::Value,
+    pub supported_features: serde_json::Value,
+    pub direct_endpoint: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct ChutesState {
+    pub chute_id_cache: std::collections::HashMap<String, (String, u64)>,
+    pub verified_instances: std::collections::HashMap<String, u64>,
+    pub nonce_pools: std::collections::HashMap<String, crate::providers::chutes::CachedChutesNonces>,
+}
+
+impl Default for ChutesState {
+    fn default() -> Self {
+        Self {
+            chute_id_cache: std::collections::HashMap::new(),
+            verified_instances: std::collections::HashMap::new(),
+            nonce_pools: std::collections::HashMap::new(),
+        }
+    }
+}
+
+/// Represents the dynamic, mutable state of a provider.
+#[derive(Debug)]
 pub struct ProviderDynamicState {
     pub health: ProviderHealthState,
-    pub cached_model_keys: HashMap<String, CachedModelKey>,
+    pub cached_model_keys: std::collections::HashMap<String, CachedModelKey>,
+    /// Maps a model name to its dynamically fetched pricing and context limits.
+    pub dynamic_models: std::collections::HashMap<String, DynamicModelInfo>,
+    pub chutes_e2ee: ChutesState,
 }
 
 impl Default for ProviderDynamicState {
     fn default() -> Self {
         Self {
             health: ProviderHealthState::default(),
-            cached_model_keys: HashMap::new(),
+            cached_model_keys: std::collections::HashMap::new(),
+            dynamic_models: std::collections::HashMap::new(),
+            chutes_e2ee: ChutesState::default(),
         }
     }
 }
 
+/// Core configuration for a single AI provider.
+///
+/// This structure holds the root connection details for downstream AI API vendors.
+/// `privacy_rating`, `zdr`, `zds`, and `tee` allow future capability-based routing.
+/// The `markup` field enables automatic dynamic pricing modifications.
+#[derive(Debug)]
 pub struct ProviderConfig {
     pub id: String,
     pub endpoint: String,
@@ -92,10 +144,13 @@ pub struct ProviderConfig {
     pub zdr: bool,
     pub zds: bool,
     pub tee: bool,
-    pub supported_models: HashMap<String, ModelConfig>,
+    /// The markup percentage applied to this provider's model pricing (e.g. 5.0 for 5%).
+    pub markup: f64,
+    /// Thread-safe lock over mutable tracking structures like cached keys and models.
     pub dynamic_state: tokio::sync::RwLock<ProviderDynamicState>,
 }
 
+/// Global application state shared across all HTTP/QUIC/Tor request handlers.
 pub struct AppState {
     pub onion_data: std::sync::RwLock<OnionData>,
     pub db_placeholder: String,
@@ -107,7 +162,7 @@ pub struct AppState {
     pub observed_spki: Arc<std::sync::Mutex<HashMap<String, std::collections::HashSet<String>>>>,
 
     pub providers: HashMap<String, Arc<ProviderConfig>>,
-    pub routing_table: HashMap<String, Vec<String>>,
+    pub routing_table: tokio::sync::RwLock<HashMap<String, Vec<String>>>,
 }
 
 impl AppState {
@@ -128,7 +183,7 @@ impl AppState {
             tls_pins,
             observed_spki,
             providers,
-            routing_table,
+            routing_table: tokio::sync::RwLock::new(routing_table),
         }
     }
 }
@@ -148,6 +203,7 @@ pub struct IncomingRequest {
     pub body: Bytes,
 }
 
+/// Helper function to create a hyper response body from a String.
 fn full_body(chunk: String) -> BoxBody<Bytes, Infallible> {
     Full::new(Bytes::from(chunk)).map_err(|e| match e {}).boxed()
 }
@@ -203,6 +259,11 @@ pub async fn router(
             crate::routes::api::chat_completions::handle_secure_openai_proxy(state, req).await
         }
 
+        // ---- Models ----
+        (Method::GET, "/v1/models") => {
+            crate::routes::api::models::handle_models_list(state, &req.uri.to_string()).await
+        }
+
         // ---- Landing page ----
         (Method::GET, "/") => {
             let (status, headers, body) = crate::routes::handle_landing_page(state, req);
@@ -243,6 +304,62 @@ pub async fn router(
     }
 }
 
+// ── Dynamic Pricing Jobs ─────────────────────────────────────────────────────
+
+// Parsers moved to utiles.rs
+
+/// Connects to a provider's models endpoint (derived from the chat completions endpoint),
+/// retrieves upstream prices, and writes them to the provider's dynamic state.
+async fn fetch_and_update_prices(state: &AppState, provider: &ProviderConfig) -> Result<(), String> {
+    let client = &state.http_client;
+
+    // Construct OpenAI compatible models URL from completion endpoint
+    let models_url = provider.endpoint.replace("/chat/completions", "/models");
+
+    let mut req = client.get(&models_url);
+    if !provider.api_key.is_empty() {
+        req = req.header("Authorization", format!("Bearer {}", provider.api_key));
+    }
+
+    let resp = req.send().await.map_err(|e| format!("Request failed: {:?}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("Unsuccessful status: {}", resp.status()));
+    }
+
+    let json: Value = resp.json().await.map_err(|e| format!("JSON parsing failed: {}", e))?;
+    let data_array = json.get("data")
+        .and_then(|d| d.as_array())
+        .ok_or_else(|| "Missing 'data' array in /v1/models response".to_string())?;
+
+    // Parse models via provider-specific parser
+    let updated_models = if provider.id == "near-ai" {
+        crate::providers::nearai::parse_models(client, data_array).await
+    } else if provider.id == "chutes-ai" {
+        crate::providers::chutes::parse_models(data_array)
+    } else {
+        // Fallback or other providers
+        crate::providers::nearai::parse_models(client, data_array).await
+    };
+
+    // Apply retrieved pricing and models to dynamic state
+    if !updated_models.is_empty() {
+        let mut dynamic_state = provider.dynamic_state.write().await;
+        let mut router_write = state.routing_table.write().await;
+
+        for (model_name, info) in updated_models {
+            dynamic_state.dynamic_models.insert(model_name.clone(), info);
+            
+            // Add provider to this model's routing list if not already there
+            let providers_list = router_write.entry(model_name).or_insert_with(Vec::new);
+            if !providers_list.contains(&provider.id) {
+                providers_list.push(provider.id.clone());
+            }
+        }
+    }
+
+    Ok(())
+}
+
 // ======================================================================
 // main — spin up all 4 listeners
 // ======================================================================
@@ -269,7 +386,7 @@ async fn main() {
 
     // ---- Shared state initialization ----
     let mut providers: HashMap<String, Arc<ProviderConfig>> = HashMap::new();
-    let mut routing_table: HashMap<String, Vec<String>> = HashMap::new();
+    let routing_table: HashMap<String, Vec<String>> = HashMap::new();
 
     // NearAI Provider
     let near_ai_key = if is_dev {
@@ -279,35 +396,38 @@ async fn main() {
         String::new()
     };
 
-    let mut near_models = HashMap::new();
-    near_models.insert("glm-5.1".to_string(), ModelConfig { 
-        upstream_model_name: "zai-org/GLM-5.1-FP8".to_string(), 
-        price_input_1m: 1.0, 
-        price_output_1m: 3.5,
-        direct_endpoint: Some("https://glm-5-1.completions.near.ai".to_string()),
-    });
-    near_models.insert("qwen-3.5-122b-a10b".to_string(), ModelConfig { 
-        upstream_model_name: "Qwen/Qwen3.5-122B-A10B".to_string(), 
-        price_input_1m: 0.5, 
-        price_output_1m: 3.5,
-        direct_endpoint: Some("https://qwen35-122b.completions.near.ai".to_string()),
-    });
-
     let near_ai = ProviderConfig {
         id: "near-ai".to_string(),
         endpoint: "https://cloud-api.near.ai/v1/chat/completions".to_string(),
         api_key: near_ai_key,
         privacy_rating: 5,
         zdr: true, zds: true, tee: true,
-        supported_models: near_models,
+        markup: 5.0, // Default 5% markup
         dynamic_state: tokio::sync::RwLock::new(ProviderDynamicState::default()),
     };
 
     let arc_near = Arc::new(near_ai);
     providers.insert(arc_near.id.clone(), arc_near.clone());
-    for model_name in arc_near.supported_models.keys() {
-        routing_table.entry(model_name.clone()).or_default().push(arc_near.id.clone());
-    }
+
+    // Chutes AI Provider
+    let chutes_key = if is_dev {
+        std::env::var("CHUTES_AI_KEY").unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    let chutes_ai = ProviderConfig {
+        id: "chutes-ai".to_string(),
+        endpoint: "https://llm.chutes.ai/v1/chat/completions".to_string(),
+        api_key: chutes_key,
+        privacy_rating: 5,
+        zdr: true, zds: true, tee: true,
+        markup: 5.0,
+        dynamic_state: tokio::sync::RwLock::new(ProviderDynamicState::default()),
+    };
+    
+    let arc_chutes = Arc::new(chutes_ai);
+    providers.insert(arc_chutes.id.clone(), arc_chutes.clone());
 
     let strict_provider = Arc::new(connections::crypto::hardened_crypto_provider());
 
@@ -334,7 +454,7 @@ async fn main() {
         .build()
         .expect("Failed to build Near AI reqwest client");
 
-    // --- Global Congis ---
+    // --- Global Configs ---
 
     let mut root_store = rustls::RootCertStore::empty();
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
@@ -359,6 +479,23 @@ async fn main() {
         providers,
         routing_table,
     ));
+
+    // ---- Spawn Dynamic Pricing background update tasks ----
+    for provider in state.providers.values() {
+        let state_clone = state.clone();
+        let provider_clone = provider.clone();
+        tokio::spawn(async move {
+            loop {
+                if let Err(e) = fetch_and_update_prices(&state_clone, &provider_clone).await {
+                    println!("[WARN] Failed to dynamically update prices for provider '{}': {}", provider_clone.id, e);
+                } else {
+                    println!("[INFO] Successfully updated dynamic prices for provider '{}'", provider_clone.id);
+                }
+                // Check and update pricing hourly
+                tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+            }
+        });
+    }
 
     // ---- Start Clearnet ----
     connections::clearnet::start_all(state.clone(), tls_port, http_port).await;

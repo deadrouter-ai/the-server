@@ -55,6 +55,7 @@ tempfile = "3"
 askama = "0.16"
 rusqlite = { version = "0.36", features = ["bundled"] }
 dcap-qvl = "0.5"
+flate2 = "1"
 
 [features]
 # Declared to silence the `unexpected_cfgs` warnings from our local quic_h3.rs bridge

@@ -1,4 +1,3 @@
-use crate::time::parse_http_date;
 use reqwest::dns::{Name, Resolve, Resolving};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use aws_lc_rs::agreement;
@@ -666,12 +665,6 @@ async fn resolve_domain_via_dnscrypt_session(
         .ok_or_else(|| "No A record found in DNSCrypt response".to_string())?;
 
     Ok(ip)
-}
-
-pub async fn resolve_domain_via_dnscrypt(domain: &str) -> Result<(IpAddr, Option<u64>), String> {
-    let session = establish_dnscrypt_session().await?;
-    let ip = resolve_domain_via_dnscrypt_session(&session, domain).await?;
-    Ok((ip, None))
 }
 
 #[cfg(test)]

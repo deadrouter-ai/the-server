@@ -20,6 +20,43 @@ use x25519_dalek::{PublicKey, StaticSecret};
 use serde_json::Value;
 use zeroize::Zeroizing;
 
+// TLS & Certificate Management Imports
+use rustls::client::danger::{ServerCertVerifier, HandshakeSignatureValid, ServerCertVerified};
+use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+use rustls::{Error as RustlsError, SignatureScheme};
+use std::sync::{Arc, Mutex};
+use tokio::sync::RwLock;
+use std::collections::HashMap;
+use x509_parser::prelude::*;
+
+// Stream & Async HTTP Imports
+use std::convert::Infallible;
+use std::io::Error as IoError;
+use std::time::{SystemTime, UNIX_EPOCH};
+use bytes::Bytes;
+use http_body_util::{combinators::BoxBody, BodyExt, Full, StreamBody};
+use hyper::body::Frame;
+use futures::StreamExt;
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio_util::io::StreamReader;
+
+use crate::{AppState, CachedModelKey, ProviderConfig};
+use crate::routes::api::chat_completions::{ChatCompletionRequest, StreamOptions};
+use crate::providers::utiles::{
+    mark_provider_healthy, mark_provider_unhealthy,
+    sanitize_and_spoof_response, wrap_stream_with_timing_padding
+};
+
+// ============================================================================
+// E2EE Cryptographic Session State
+// ============================================================================
+
+/// Represents an active End-to-End Encrypted session for Near AI.
+///
+/// Handles generation of an ephemeral Ed25519 client key pair, and extracts
+/// an X25519 shared secret to be combined later with the upstream model's 
+/// public key via Diffie-Hellman, yielding a secure CHACHA20-POLY1305 tunnel.
+
 pub struct E2eeSession {
     pub client_pub_hex: String,
     pub x25519_secret: Zeroizing<[u8; 32]>,
@@ -57,6 +94,14 @@ impl E2eeSession {
     }
 }
 
+// ============================================================================
+// E2EE Encryption & Decryption
+// ============================================================================
+
+/// Encrypts plaintext bytes using a combination of Ephemeral X25519 Diffie-Hellman 
+/// and XChaCha20Poly1305 symmetric AEAD encryption.
+///
+/// Generates an ephemeral public key per message and derives a symmetric key via HKDF.
 pub fn v2_encrypt(plaintext: &[u8], recipient_x25519_pub_bytes: &[u8; 32]) -> Result<String, String> {
     use aws_lc_rs::agreement::{self, EphemeralPrivateKey, X25519};
     use aws_lc_rs::rand::SystemRandom;
@@ -108,6 +153,9 @@ pub fn v2_encrypt(plaintext: &[u8], recipient_x25519_pub_bytes: &[u8; 32]) -> Re
     Ok(hex::encode(result))
 }
 
+/// Decrypts a hex-encoded XChaCha20Poly1305 payload using the local static secret.
+/// 
+/// The payload must be prefixed with a 32-byte ephemeral public key and a 24-byte nonce.
 pub fn v2_decrypt(data_hex: &str, secret_x25519_bytes: &[u8; 32]) -> Result<String, String> {
     let data = hex::decode(data_hex).map_err(|_| "Invalid hex")?;
     if data.len() < 56 { return Err("Payload too short".into()); }
@@ -144,6 +192,15 @@ pub fn v2_decrypt(data_hex: &str, secret_x25519_bytes: &[u8; 32]) -> Result<Stri
     Ok(raw_string)
 }
 
+// ============================================================================
+// Attestation Verification
+// ============================================================================
+
+/// Dynamically fetches and rigorously verifies a Near AI model's hardware attestation.
+///
+/// Connects to the models direct endpoint, parsing the JSON report to extract
+/// either the Intel TDX Quote or NVIDIA NRAS Payload. Strictly enforces security
+/// properties: checks Debug limits, Secure Boot, Nonce Binding, and TLS PKI match.
 pub async fn fetch_near_ai_model_key(
     client: &reqwest::Client,
     standard_client: &reqwest::Client,
@@ -344,14 +401,13 @@ pub async fn fetch_near_ai_model_key(
     Ok((model_x25519_bytes, tls_cert_fingerprint.to_string()))
 }
 
-use rustls::client::danger::{ServerCertVerifier, HandshakeSignatureValid, ServerCertVerified};
-use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
-use rustls::{Error as RustlsError, SignatureScheme};
-use std::sync::{Arc, Mutex};
-use tokio::sync::RwLock;
-use std::collections::HashMap;
-use x509_parser::prelude::*;
+// ── Custom TLS Certificate Validation ───────────────────────────────────────
 
+/// A custom TLS verifier specifically locking down Near AI server connections.
+/// 
+/// Employs Trust On First Use (TOFU) mixed with dynamic hardware attestation binding.
+/// Forces the downstream provider to prove they own the Ed25519 hardware key 
+/// linked to the live SPKI presented during TLS negotiation.
 #[derive(Debug)]
 pub struct NearAiTlsVerifier {
     pub pinned_spki_hashes: Arc<RwLock<HashMap<String, std::collections::HashSet<String>>>>,
@@ -418,4 +474,484 @@ impl ServerCertVerifier for NearAiTlsVerifier {
             SignatureScheme::ED25519,
         ]
     }
+}
+
+// ============================================================================
+// Model Configuration Parsing
+// ============================================================================
+
+/// Constructs the explicit backend domain resolution string for a specific model.
+pub fn get_direct_endpoint(frontend_requested_model: &str) -> String {
+    let lower = frontend_requested_model.to_lowercase().replace(".", "-");
+    format!("https://{}.completions.near.ai", lower)
+}
+
+/// Dynamically filters and registers a JSON response array of available AI models.
+///
+/// This parser safely filters out audio/embedding models, strips non-essential
+/// prefix routing schemas, extracts dynamically generated Context Limits, and 
+/// sanitizes configuration parameters directly into a typed cache structure.
+pub async fn parse_models(client: &reqwest::Client, data_array: &[Value]) -> HashMap<String, crate::DynamicModelInfo> {
+    let mapping_json: Value = match client.get("https://completions.near.ai/endpoints")
+        .timeout(std::time::Duration::from_secs(5))
+        .send().await
+    {
+        Ok(resp) if resp.status().is_success() => {
+            resp.json().await.unwrap_or_else(|_| get_hardcoded_endpoints())
+        }
+        _ => get_hardcoded_endpoints()
+    };
+
+    let mut model_to_domain = HashMap::new();
+    if let Some(endpoints) = mapping_json.get("endpoints").and_then(|v| v.as_array()) {
+        for ep in endpoints {
+            let domain = ep.get("domain").and_then(|v| v.as_str()).unwrap_or("");
+            if let Some(models) = ep.get("models").and_then(|v| v.as_array()) {
+                for m in models {
+                    if let Some(m_str) = m.as_str() {
+                        model_to_domain.insert(m_str.to_string(), domain.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    let mut models = HashMap::new();
+    for model_val in data_array {
+        // Strict text-only model filter
+        let out_mods = model_val.get("output_modalities").or_else(|| model_val.get("architecture").and_then(|a| a.get("outputModalities"))).and_then(|v| v.as_array());
+        let in_mods = model_val.get("input_modalities").or_else(|| model_val.get("architecture").and_then(|a| a.get("inputModalities"))).and_then(|v| v.as_array());
+        
+        let is_valid = out_mods.map_or(false, |m| m.iter().all(|x| x.as_str() == Some("text")) && !m.is_empty()) && in_mods.map_or(false, |m| m.iter().all(|x| x.as_str() == Some("text")) && !m.is_empty());
+
+        if !is_valid {
+            continue;
+        }
+
+        if let Some(id) = model_val.get("id").and_then(|v| v.as_str()) {
+            let domain = match model_to_domain.get(id) {
+                Some(d) => d,
+                None => continue,
+            };
+
+            // Explicitly filter out mislabeled embedding or reranker models from Near AI
+            if id.contains("Reranker") || id.contains("Embedding") {
+                continue;
+            }
+
+            let mut frontend_name = match id.find('/') {
+                Some(idx) => &id[idx + 1..],
+                None => id,
+            }.to_string();
+
+            if frontend_name.ends_with("-FP8") {
+                frontend_name = frontend_name.trim_end_matches("-FP8").to_string();
+            }
+            if frontend_name.ends_with("-TEE") {
+                frontend_name = frontend_name.trim_end_matches("-TEE").to_string();
+            }
+            if frontend_name.ends_with("-AWQ") {
+                frontend_name = frontend_name.trim_end_matches("-AWQ").to_string();
+            }
+            if frontend_name.ends_with("-NVFP4") {
+                frontend_name = frontend_name.trim_end_matches("-NVFP4").to_string();
+            }
+
+            frontend_name = frontend_name.to_lowercase();
+
+            let (p_in, p_out) = crate::providers::utiles::parse_model_price(model_val).unwrap_or((0.0, 0.0));
+            
+            let mut ctx_len = 128000;
+            let mut max_comp = 4096;
+            if let Some(c) = model_val.get("context_length").and_then(|v| v.as_u64()) { ctx_len = c; }
+            if let Some(m) = model_val.get("max_output_length").and_then(|v| v.as_u64()) { max_comp = m; }
+
+            if let Some(top_prov) = model_val.get("top_provider") {
+                if let Some(c) = top_prov.get("context_length").and_then(|v| v.as_u64()) { ctx_len = c; }
+                if let Some(m) = top_prov.get("max_completion_tokens").and_then(|v| v.as_u64()) { max_comp = m; }
+            }
+
+            let name = frontend_name.clone();
+            let params = model_val.get("supported_sampling_parameters").cloned().unwrap_or(serde_json::json!(["temperature","top_p","top_k","frequency_penalty","presence_penalty","max_tokens","seed"]));
+            
+            // Remove "stop" from params if present
+            let mut cleaned_params = params.clone();
+            if let Some(arr) = cleaned_params.as_array_mut() {
+                arr.retain(|v| v.as_str() != Some("stop"));
+            }
+
+            let feats = model_val.get("supported_features").cloned().unwrap_or(serde_json::json!([]));
+
+            models.insert(frontend_name, crate::DynamicModelInfo {
+                upstream_model_name: id.to_string(),
+                name,
+                price_input_1m: p_in,
+                price_output_1m: p_out,
+                context_length: ctx_len,
+                max_completion_tokens: max_comp,
+                supported_sampling_parameters: cleaned_params,
+                supported_features: feats,
+                direct_endpoint: Some(format!("https://{}", domain)),
+            });
+        }
+    }
+    models
+}
+
+fn get_hardcoded_endpoints() -> Value {
+    serde_json::json!({"endpoints":[{"domain":"flux2-klein.completions.near.ai","models":["black-forest-labs/FLUX.2-klein-4B"]},{"domain":"gemma-4-31b.completions.near.ai","models":["google/gemma-4-31B-it"]},{"domain":"glm-5-1.completions.near.ai","models":["zai-org/GLM-5.1-FP8"]},{"domain":"glm-5.completions.near.ai","models":["zai-org/GLM-5-FP8"]},{"domain":"gpt-oss-120b.completions.near.ai","models":["openai/gpt-oss-120b"]},{"domain":"privacy-filter.completions.near.ai","models":["openai/privacy-filter"]},{"domain":"qwen3-30b.completions.near.ai","models":["Qwen/Qwen3-30B-A3B-Instruct-2507"]},{"domain":"qwen3-6-35b.completions.near.ai","models":["Qwen/Qwen3.6-35B-A3B-FP8"]},{"domain":"qwen3-embedding.completions.near.ai","models":["Qwen/Qwen3-Embedding-0.6B"]},{"domain":"qwen3-reranker.completions.near.ai","models":["Qwen/Qwen3-Reranker-0.6B"]},{"domain":"qwen3-vl-30b.completions.near.ai","models":["Qwen/Qwen3-VL-30B-A3B-Instruct"]},{"domain":"qwen35-122b.completions.near.ai","models":["Qwen/Qwen3.5-122B-A10B"]},{"domain":"whisper-large-v3.completions.near.ai","models":["openai/whisper-large-v3"]}]})
+}
+
+// ============================================================================
+// Upstream Response & Network Routing
+// ============================================================================
+
+/// Internal stream/response processor that decrypts Server-Sent Events (SSE) inline.
+///
+/// Applies response spoofing, billing recalculations based on markup limits, 
+/// tracks token usage, un-pads timing countermeasures, and handles connection healing.
+async fn process_near_ai_response(
+    resp: reqwest::Response,
+    is_streaming: bool,
+    client_wants_usage: bool,
+    chat_id: String,
+    requested_model: String,
+    provider_id: String,
+    price_input_1m: f64,
+    price_output_1m: f64,
+    client_secret: Zeroizing<[u8; 32]>,
+    provider: Arc<ProviderConfig>,
+) -> Result<BoxBody<Bytes, Infallible>, String> {
+    if is_streaming {
+        let stream_err_mapper = resp.bytes_stream().map(|res| res.map_err(|e| IoError::new(std::io::ErrorKind::Other, e)));
+        let mut stream_reader = BufReader::new(StreamReader::new(stream_err_mapper));
+        let provider_clone = provider.clone();
+
+        let stream = async_stream::stream! {
+            let mut line = String::new();
+            let mut total_input_tokens = 0.0;
+            let mut total_output_tokens = 0.0;
+
+            loop {
+                line.clear();
+                match stream_reader.read_line(&mut line).await {
+                    Ok(0) => {
+                        mark_provider_healthy(&provider_clone).await;
+                        break;
+                    } 
+                    Ok(_) => {
+                        let trimmed = line.trim();
+                        if trimmed.is_empty() { continue; }
+
+                        let mut is_corrupt = false;
+                        let mut error_msg = "Corrupt or invalid response from downstream provider.".to_string();
+
+                        if trimmed.starts_with("data: ") {
+                            let data_content = trimmed[6..].trim();
+                            if data_content == "[DONE]" {
+                                yield Ok::<_, Infallible>(Frame::data(Bytes::from("data: [DONE]\n\n")));
+                                break;
+                            } 
+                            
+                            match serde_json::from_str::<Value>(data_content) {
+                                Ok(mut json) => {
+                                    if json.get("error").is_some() {
+                                        is_corrupt = true;
+                                        if let Some(msg) = json.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()) {
+                                            error_msg = msg.to_string();
+                                        }
+                                    } else {
+                                        let is_usage_chunk = json.get("usage").is_some() && 
+                                            json.get("choices").and_then(|c| c.as_array()).map_or(true, |a| a.is_empty());
+
+                                        // --- Inline Decryption for Stream Chunks ---
+                                        if let Some(choices) = json.get_mut("choices").and_then(|c| c.as_array_mut()) {
+                                            for choice in choices.iter_mut() {
+                                                if let Some(delta) = choice.get_mut("delta").and_then(|d| d.as_object_mut()) {
+                                                    if let Some(enc_content) = delta.get("content").and_then(|v| v.as_str()) {
+                                                        if enc_content.len() >= 112 {
+                                                            match v2_decrypt(enc_content, &client_secret) {
+                                                                Ok(plain) => {
+                                                                    delta.insert("content".to_string(), Value::String(plain));
+                                                                }
+                                                                Err(e) => {
+                                                                    is_corrupt = true;
+                                                                    error_msg = format!("Failed to decrypt stream content: {}", e);
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    if let Some(enc_reasoning) = delta.get("reasoning_content").and_then(|v| v.as_str()) {
+                                                        if enc_reasoning.len() >= 112 {
+                                                            match v2_decrypt(enc_reasoning, &client_secret) {
+                                                                Ok(plain) => {
+                                                                    delta.insert("reasoning_content".to_string(), Value::String(plain));
+                                                                }
+                                                                Err(e) => {
+                                                                    is_corrupt = true;
+                                                                    error_msg = format!("Failed to decrypt stream reasoning: {}", e);
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        if !is_corrupt {
+                                            let sanitized_json = sanitize_and_spoof_response(
+                                                json, &chat_id, &requested_model, &provider_id,
+                                                price_input_1m, price_output_1m, provider.markup, &mut total_input_tokens, &mut total_output_tokens
+                                            );
+
+                                            if !is_usage_chunk || client_wants_usage {
+                                                let modified_chunk = format!("data: {}\n\n", serde_json::to_string(&sanitized_json).unwrap());
+                                                yield Ok::<_, Infallible>(Frame::data(Bytes::from(modified_chunk)));
+                                            }
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    is_corrupt = true;
+                                    error_msg = format!("Corrupt JSON in stream: {}", e);
+                                }
+                            }
+                        } else {
+                            if trimmed.starts_with('{') {
+                                if let Ok(json) = serde_json::from_str::<Value>(trimmed) {
+                                    if json.get("error").is_some() {
+                                        is_corrupt = true;
+                                        if let Some(msg) = json.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()) {
+                                            error_msg = msg.to_string();
+                                        }
+                                    }
+                                }
+                            } else {
+                                is_corrupt = true;
+                                error_msg = format!("Invalid stream protocol line: {}", trimmed);
+                            }
+                        }
+
+                        if is_corrupt {
+                            mark_provider_unhealthy(&provider_clone, 30).await;
+                            let err_json = serde_json::json!({
+                                "error": {
+                                    "message": format!("Downstream provider '{}' is temporarily unavailable. Error: {}", provider_clone.id, error_msg),
+                                    "type": "service_unavailable",
+                                    "param": null,
+                                    "code": "provider_unavailable"
+                                }
+                            });
+                            let err_chunk = format!("data: {}\n\n", serde_json::to_string(&err_json).unwrap());
+                            yield Ok::<_, Infallible>(Frame::data(Bytes::from(err_chunk)));
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        mark_provider_unhealthy(&provider_clone, 30).await;
+                        let err_json = serde_json::json!({
+                            "error": {
+                                "message": format!("Downstream provider '{}' is temporarily unavailable. Stream read error: {}", provider_clone.id, e),
+                                "type": "service_unavailable",
+                                "param": null,
+                                "code": "provider_unavailable"
+                            }
+                        });
+                        let err_chunk = format!("data: {}\n\n", serde_json::to_string(&err_json).unwrap());
+                        yield Ok::<_, Infallible>(Frame::data(Bytes::from(err_chunk)));
+                        break;
+                    }
+                }
+            }
+        };
+
+        let wrapped = wrap_stream_with_timing_padding(Box::pin(stream));
+        Ok(BodyExt::boxed(StreamBody::new(wrapped)))
+            
+    } else {
+        match resp.json::<Value>().await {
+            Ok(mut json_resp) => {
+                if json_resp.get("error").is_some() {
+                    let mut error_msg = "Upstream error response".to_string();
+                    if let Some(msg) = json_resp.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()) {
+                        error_msg = msg.to_string();
+                    }
+                    return Err(error_msg);
+                }
+
+                if let Some(choices) = json_resp.get_mut("choices").and_then(|c| c.as_array_mut()) {
+                    for choice in choices.iter_mut() {
+                        if let Some(message) = choice.get_mut("message").and_then(|m| m.as_object_mut()) {
+                            if let Some(enc_content) = message.get("content").and_then(|v| v.as_str()) {
+                                if enc_content.len() >= 112 {
+                                    if let Ok(plain) = v2_decrypt(enc_content, &client_secret) {
+                                        message.insert("content".to_string(), Value::String(plain));
+                                    }
+                                }
+                            }
+                            if let Some(enc_reasoning) = message.get("reasoning_content").and_then(|v| v.as_str()) {
+                                if enc_reasoning.len() >= 112 {
+                                    if let Ok(plain) = v2_decrypt(enc_reasoning, &client_secret) {
+                                        message.insert("reasoning_content".to_string(), Value::String(plain));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                let mut in_tok = 0.0;
+                let mut out_tok = 0.0;
+
+                let mut sanitized_json = sanitize_and_spoof_response(
+                    json_resp, &chat_id, &requested_model, &provider_id,
+                    price_input_1m, price_output_1m, provider.markup, &mut in_tok, &mut out_tok
+                );
+
+                mark_provider_healthy(&provider).await;
+
+                sanitized_json["pad"] = Value::String("".to_string());
+                let base_json = serde_json::to_string(&sanitized_json).unwrap();
+                let p = 1024 - (base_json.len() % 1024);
+                let pad_str = "X".repeat(p);
+                sanitized_json["pad"] = Value::String(pad_str);
+
+                let body_bytes = serde_json::to_vec(&sanitized_json).unwrap();
+                debug_assert_eq!(body_bytes.len() % 1024, 0);
+
+                Ok(BodyExt::boxed(Full::new(Bytes::from(body_bytes)).map_err(|e| match e {})))
+            }
+            Err(e) => Err(format!("Failed to parse JSON response: {}", e))
+        }
+    }
+}
+
+// ============================================================================
+// Core Execution Orchestrator
+// ============================================================================
+
+/// Executes a fully encrypted proxy request to a Near AI upstream node.
+///
+/// Orchestrates dynamic routing, memory locking for attestation keys, encryption
+/// of chat parameters, enforcing connection verification, and delegating the final
+/// output to `process_near_ai_response`.
+pub async fn call_near_ai(
+    state: &AppState,
+    provider: &Arc<ProviderConfig>,
+    mut proxy_req: ChatCompletionRequest,
+    chat_id: String,
+    client_wants_usage: bool,
+    frontend_requested_model: String,
+) -> Result<BoxBody<Bytes, Infallible>, String> {
+    if proxy_req.stream { proxy_req.stream_options = Some(StreamOptions { include_usage: true }); }
+
+    let (upstream_model_name, price_input, price_output, direct_endpoint) = {
+        let state_read = provider.dynamic_state.read().await;
+        if let Some(info) = state_read.dynamic_models.get(&frontend_requested_model) {
+            (info.upstream_model_name.clone(), info.price_input_1m, info.price_output_1m, info.direct_endpoint.clone())
+        } else {
+            return Err(format!("Model {} not dynamically configured", frontend_requested_model));
+        }
+    };
+
+    let direct_url = direct_endpoint.unwrap_or_else(|| get_direct_endpoint(&frontend_requested_model));
+    let domain = direct_url.trim_start_matches("https://").trim_end_matches('/').to_string();
+
+    let current_ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+    let mut cached_key_opt = None;
+
+    {
+        let state_read = provider.dynamic_state.read().await;
+        if let Some(key_info) = state_read.cached_model_keys.get(&frontend_requested_model) {
+            if current_ts < key_info.expires_at {
+                cached_key_opt = Some(key_info.x25519_bytes);
+            }
+        }
+    }
+
+    let model_x25519_bytes = match cached_key_opt {
+        Some(key) => key,
+        None => {
+            let (fetched_bytes, tls_fingerprint) = fetch_near_ai_model_key(
+                &state.near_ai_client,
+                &state.http_client,
+                &direct_url,
+            ).await?;
+
+            // Verify live SPKI matches attestation fingerprint
+            {
+                let observed = state.observed_spki.lock().unwrap();
+                if let Some(live_spkis) = observed.get(&domain) {
+                    if !live_spkis.contains(&tls_fingerprint) {
+                        return Err(format!(
+                            "TLS cert mismatch: live SPKIs ({:?}) do not contain attested fingerprint ({}).",
+                            live_spkis, tls_fingerprint
+                        ));
+                    }
+                }
+            }
+
+            {
+                let mut pins_write = state.tls_pins.write().await;
+                pins_write.entry(domain.clone()).or_default().insert(tls_fingerprint.clone());
+            }
+            
+            let mut state_write = provider.dynamic_state.write().await;
+            state_write.cached_model_keys.insert(frontend_requested_model.clone(), CachedModelKey {
+                expires_at: current_ts + (60 * 60),
+                x25519_bytes: fetched_bytes,
+            });
+            
+            fetched_bytes
+        }
+    };
+
+    // Extraction handled safely above during routing phase
+
+    // E2EE Encryption
+    proxy_req.model = upstream_model_name;
+    let session = E2eeSession::new();
+    
+    // Encrypt sensitive content immediately
+    for msg in proxy_req.messages.iter_mut() {
+        let encrypted = v2_encrypt(msg.content.as_bytes(), &model_x25519_bytes)?;
+        msg.content = encrypted;
+    }
+    
+    let req_body = Zeroizing::new(serde_json::to_vec(&proxy_req).map_err(|e| e.to_string())?);
+
+    let chat_url = format!("{}/v1/chat/completions", direct_url);
+    
+    let upstream_req = state.near_ai_client
+        .post(&chat_url)
+        .header("Authorization", format!("Bearer {}", provider.api_key))
+        .header("Content-Type", "application/json")
+        .header("X-Signing-Algo", "ed25519")
+        .header("X-Client-Pub-Key", &session.client_pub_hex)
+        .header("X-Encryption-Version", "2")
+        .body(req_body.to_vec())
+        .send()
+        .await
+        .map_err(|e| format!("Network error: {}", e))?;
+
+    drop(req_body);
+
+    if !upstream_req.status().is_success() {
+        return Err(format!("{} - {}", upstream_req.status(), upstream_req.text().await.unwrap_or_default()));
+    }
+
+    // Prices already grabbed dynamically from state
+
+    process_near_ai_response(
+        upstream_req,
+        proxy_req.stream,
+        client_wants_usage,
+        chat_id,
+        frontend_requested_model, 
+        provider.id.clone(),
+        price_input,
+        price_output,
+        session.x25519_secret,
+        provider.clone(),
+    ).await
 }
