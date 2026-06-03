@@ -61,6 +61,8 @@ enum AnyModelItem {
 struct ModelsResponse {
     object: &'static str,
     data: Vec<AnyModelItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    e2ee_ticket: Option<crate::crypto_e2ee::E2eeTicketResponse>,
 }
 
 /// Helper function to format prices to strings with up to 10 decimal places,
@@ -214,9 +216,14 @@ pub async fn handle_models_list(
         id_a.cmp(id_b)
     });
 
+    // Inject fresh E2EE ephemeral ticket so client can encrypt before posting
+    let ticket_secrets = state.ticket_secrets.read().await;
+    let ticket = crate::crypto_e2ee::generate_ticket(&ticket_secrets);
+
     let response = ModelsResponse {
         object: "list",
         data: model_items,
+        e2ee_ticket: Some(ticket),
     };
 
     let body_bytes = serde_json::to_vec(&response).unwrap();

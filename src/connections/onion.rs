@@ -5,7 +5,6 @@ use arti_client::config::CfgPath;
 use arti_client::{TorClient, TorClientConfig};
 use bytes::Bytes;
 use futures::StreamExt;
-use http_body_util::Full;
 use hyper::service::service_fn;
 use hyper::{Request, Response, StatusCode};
 use safelog::DisplayRedacted;
@@ -140,16 +139,51 @@ pub async fn start(state: Arc<AppState>) {
                     let io = hyper_util::rt::TokioIo::new(data_stream);
                     let svc = service_fn(move |req: Request<hyper::body::Incoming>| {
                         let onion_domain = onion_domain_clone.clone();
+                        let state = state.clone();
                         async move {
-                            let p_q = req.uri().path_and_query().map(|pq| pq.as_str()).unwrap_or("/");
-                            let https_url = format!("https://{}{}", onion_domain, p_q);
-                            
-                            let resp = Response::builder()
-                                .status(StatusCode::PERMANENT_REDIRECT)
-                                .header(hyper::header::LOCATION, https_url)
-                                .body(Full::new(Bytes::new()))
-                                .unwrap();
-                            Ok::<_, Infallible>(resp)
+                            if req.uri().path().starts_with("/v1") {
+                                let proto = match req.version() {
+                                    hyper::Version::HTTP_2 => "Tor Onion (HTTP/2) [Plaintext]",
+                                    _ => "Tor Onion (HTTP/1.1) [Plaintext]",
+                                };
+                                let (parts, incoming_body) = req.into_parts();
+                                let body_bytes = match http_body_util::BodyExt::collect(incoming_body).await {
+                                    Ok(collected) => collected.to_bytes(),
+                                    Err(_) => Bytes::new(),
+                                };
+
+                                let mut header_map = std::collections::HashMap::new();
+                                for (k, v) in parts.headers.iter() {
+                                    if let Ok(val) = v.to_str() {
+                                        header_map.insert(k.as_str().to_lowercase(), val.to_string());
+                                    }
+                                }
+
+                                let incoming = IncomingRequest {
+                                    method: parts.method,
+                                    uri: parts.uri,
+                                    protocol: proto,
+                                    headers: header_map,
+                                    body: body_bytes,
+                                };
+                                let (status, headers, body) = router(&state, &incoming).await;
+
+                                let mut builder = Response::builder().status(status);
+                                for (k, v) in &headers {
+                                    builder = builder.header(*k, v.as_str());
+                                }
+                                Ok::<_, Infallible>(builder.body(body).unwrap())
+                            } else {
+                                let p_q = req.uri().path_and_query().map(|pq| pq.as_str()).unwrap_or("/");
+                                let https_url = format!("https://{}{}", onion_domain, p_q);
+                                
+                                let resp = Response::builder()
+                                    .status(StatusCode::PERMANENT_REDIRECT)
+                                    .header(hyper::header::LOCATION, https_url)
+                                    .body(crate::routes::full_body(String::new()))
+                                    .unwrap();
+                                Ok::<_, Infallible>(resp)
+                            }
                         }
                     });
 

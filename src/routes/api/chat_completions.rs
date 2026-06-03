@@ -15,24 +15,21 @@ use crate::providers::nearai::call_near_ai;
 // ── Strict Schemas ────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct Message {
     pub role: String,
     pub content: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct StreamOptions {
     pub include_usage: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct ChatCompletionRequest {
     pub model: String,
     pub messages: Vec<Message>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]

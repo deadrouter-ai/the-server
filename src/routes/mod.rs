@@ -72,6 +72,15 @@ pub async fn router(
             )
         }
 
+        // ---- CORS Preflight ----
+        (Method::OPTIONS, _) => {
+            (
+                StatusCode::OK,
+                vec![],
+                full_body(String::new()),
+            )
+        }
+
         // ---- Chat Completions ----
         (Method::POST, "/v1/chat/completions") => {
             crate::routes::api::chat_completions::handle_secure_openai_proxy(state, req).await

@@ -924,7 +924,7 @@ pub async fn call_near_ai(
         msg.content = encrypted;
     }
     
-    let req_body = Zeroizing::new(serde_json::to_vec(&proxy_req).map_err(|e| e.to_string())?);
+    let req_body = serde_json::to_vec(&proxy_req).map_err(|e| e.to_string())?;
 
     let chat_url = format!("{}/v1/chat/completions", direct_url);
     
@@ -935,12 +935,10 @@ pub async fn call_near_ai(
         .header("X-Signing-Algo", "ed25519")
         .header("X-Client-Pub-Key", &upstream_session.client_pub_hex)
         .header("X-Encryption-Version", "2")
-        .body(req_body.to_vec())
+        .body(req_body)
         .send()
         .await
         .map_err(|e| format!("Network error: {}", e))?;
-
-    drop(req_body);
 
     if !upstream_req.status().is_success() {
         return Err(format!("{} - {}", upstream_req.status(), upstream_req.text().await.unwrap_or_default()));

@@ -50,7 +50,10 @@ pub async fn hyper_handler(
     builder = builder.header(
         "Strict-Transport-Security",
         "max-age=63072000; includeSubDomains",
-    );
+    )
+    .header("Access-Control-Allow-Origin", "*")
+    .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    .header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-KX-Algo, X-Server-Ticket, X-Client-Pub-Key, X-E2EE-Enabled, X-CSRF-Token");
     for (k, v) in &headers {
         builder = builder.header(*k, v.as_str());
     }
@@ -68,7 +71,7 @@ async fn redirect_to_https(
         .unwrap_or("localhost");
 
     let host_no_port = host.split(':').next().unwrap_or(host);
-    let is_dev = std::env::var("DEVELOPMENT").unwrap_or_else(|_| "false".to_string()) == "true";
+    let is_dev = cfg!(feature = "development");
     let tls_port = if is_dev { 5443 } else { 443 };
     let target = format!("https://{}:{}{}", host_no_port, tls_port, req.uri().path());
 
@@ -174,10 +177,14 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
                                 let (status, headers, mut body_stream) = router(&state, &incoming).await;
 
                                 let mut builder =
-                                    hyper::Response::builder().status(status.as_u16()).header(
-                                        "Strict-Transport-Security",
-                                        "max-age=63072000; includeSubDomains",
-                                    );
+                                    hyper::Response::builder().status(status.as_u16())
+                                        .header(
+                                            "Strict-Transport-Security",
+                                            "max-age=63072000; includeSubDomains",
+                                        )
+                                        .header("Access-Control-Allow-Origin", "*")
+                                        .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+                                        .header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-KX-Algo, X-Server-Ticket, X-Client-Pub-Key, X-E2EE-Enabled");
                                 for (k, v) in &headers {
                                     builder = builder.header(*k, v.as_str());
                                 }
@@ -225,8 +232,9 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
     });
 }
 
-/// 3. Plaintext HTTP redirect — TCP :80 → https://..:443
-fn spawn_http_redirect(listener: TcpListener) {
+/// 3. Plaintext HTTP (TCP :5001) - Serves API directly in Development, otherwise redirects to HTTPS
+fn spawn_http(listener: TcpListener, state: Arc<AppState>) {
+    let is_dev = cfg!(feature = "development");
     tokio::spawn(async move {
         loop {
             let (stream, _peer) = match listener.accept().await {
@@ -236,15 +244,33 @@ fn spawn_http_redirect(listener: TcpListener) {
                     continue;
                 }
             };
+            let state = state.clone();
             tokio::spawn(async move {
                 let io = hyper_util::rt::TokioIo::new(stream);
-                let svc = service_fn(redirect_to_https);
-                if let Err(e) = hyper::server::conn::http1::Builder::new()
-                    .serve_connection(io, svc)
-                    .await
-                {
-                    if !e.is_incomplete_message() {
-                        eprintln!("[http] redirect connection error: {}", e);
+                if is_dev {
+                    // Serve API directly in plaintext for localhost development to bypass self-signed cert errors
+                    let svc = service_fn(move |req| {
+                        let state = state.clone();
+                        hyper_handler(state, req)
+                    });
+                    if let Err(e) = hyper::server::conn::http1::Builder::new()
+                        .serve_connection(io, svc)
+                        .await
+                    {
+                        if !e.is_incomplete_message() {
+                            eprintln!("[http] dev connection error: {}", e);
+                        }
+                    }
+                } else {
+                    // Redirect to HTTPS in production
+                    let svc = service_fn(redirect_to_https);
+                    if let Err(e) = hyper::server::conn::http1::Builder::new()
+                        .serve_connection(io, svc)
+                        .await
+                    {
+                        if !e.is_incomplete_message() {
+                            eprintln!("[http] redirect connection error: {}", e);
+                        }
                     }
                 }
             });
@@ -308,9 +334,9 @@ pub async fn start_all(state: Arc<AppState>, tls_port: u16, http_port: u16) {
         .await
         .expect("bind http port");
     println!(
-        "[http] Listening on 0.0.0.0:{}  (plaintext → HTTPS redirect)",
+        "[http] Listening on 0.0.0.0:{}  (plaintext → API / HTTPS redirect)",
         http_port
     );
 
-    spawn_http_redirect(http_listener);
+    spawn_http(http_listener, state.clone());
 }
