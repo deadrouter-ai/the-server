@@ -81,6 +81,7 @@ pub struct ProviderDynamicState {
 #[derive(Debug)]
 pub struct ProviderConfig {
     pub id: String,
+    pub location: String,
     pub endpoint: String,
     pub api_key: String,
     pub privacy_rating: u8,

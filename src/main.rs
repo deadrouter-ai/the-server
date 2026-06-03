@@ -36,6 +36,9 @@ use providers::fetch_and_update_prices;
 
 #[tokio::main]
 async fn main() {
+    #[cfg(feature = "development")]
+    let _ = dotenvy::dotenv();
+
     if let Ok(hash) = std::env::var("LOADER_PAYLOAD_HASH") {
         println!("[info] Payload measurement: {}", hash);
     }
@@ -62,6 +65,7 @@ async fn main() {
 
     let near_ai = ProviderConfig {
         id: "near-ai".to_string(),
+        location: "us".to_string(),
         endpoint: "https://cloud-api.near.ai/v1/chat/completions".to_string(),
         api_key: near_ai_key,
         privacy_rating: 5,
@@ -82,6 +86,7 @@ async fn main() {
 
     let chutes_ai = ProviderConfig {
         id: "chutes".to_string(),
+        location: "us".to_string(),
         endpoint: "https://llm.chutes.ai/v1/chat/completions".to_string(),
         api_key: chutes_key,
         privacy_rating: 5,
@@ -102,6 +107,7 @@ async fn main() {
 
     let redpill_ai = ProviderConfig {
         id: "redpill".to_string(),
+        location: "us".to_string(),
         endpoint: "https://api.redpill.ai/v1/chat/completions".to_string(),
         api_key: redpill_key,
         privacy_rating: 4,
@@ -112,6 +118,28 @@ async fn main() {
 
     let arc_redpill = Arc::new(redpill_ai);
     providers.insert(arc_redpill.id.clone(), arc_redpill.clone());
+
+    // Infomaniak Provider
+    let infomaniak_key = if is_dev {
+        std::env::var("INFOMANIAK_KEY").unwrap_or_default()
+    } else {
+        String::new()
+    };
+    let infomaniak_product_id = std::env::var("INFOMANIAK_PRODUCT_ID").unwrap_or_default();
+
+    let infomaniak_ai = ProviderConfig {
+        id: "infomaniak".to_string(),
+        location: "ch".to_string(),
+        endpoint: format!("https://api.infomaniak.com/2/ai/{}/openai/v1/chat/completions", infomaniak_product_id),
+        api_key: infomaniak_key,
+        privacy_rating: 4,
+        zdr: true, zds: true, tee: false,
+        markup: 15.0,
+        dynamic_state: tokio::sync::RwLock::new(ProviderDynamicState::default()),
+    };
+
+    let arc_infomaniak = Arc::new(infomaniak_ai);
+    providers.insert(arc_infomaniak.id.clone(), arc_infomaniak.clone());
 
     let strict_provider = Arc::new(connections::crypto::hardened_crypto_provider());
 

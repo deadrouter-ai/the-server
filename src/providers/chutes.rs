@@ -26,6 +26,20 @@ use zeroize::Zeroizing;
 
 use super::utiles::gen_random_bytes;
 
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::io::Error as IoError;
+use bytes::Bytes;
+use http_body_util::{combinators::BoxBody, BodyExt, Full, StreamBody};
+use hyper::body::Frame;
+use futures::StreamExt;
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio_util::io::StreamReader;
+
+use crate::{AppState, ProviderConfig, DynamicModelInfo};
+use crate::routes::api::chat_completions::{ChatCompletionRequest, StreamOptions};
+use crate::providers::utiles::{sanitize_and_spoof_response, wrap_stream_with_timing_padding};
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const MLKEM_CT_SIZE: usize = 1088;
@@ -682,20 +696,6 @@ pub async fn verify_chutes_tee_evidence(
 
     Ok(verified_ids)
 }
-
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::io::Error as IoError;
-use bytes::Bytes;
-use http_body_util::{combinators::BoxBody, BodyExt, Full, StreamBody};
-use hyper::body::Frame;
-use futures::StreamExt;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio_util::io::StreamReader;
-
-use crate::{AppState, ProviderConfig, DynamicModelInfo};
-use crate::routes::api::chat_completions::{ChatCompletionRequest, StreamOptions};
-use crate::providers::utiles::{sanitize_and_spoof_response, wrap_stream_with_timing_padding};
 
 pub fn parse_models(data_array: &[Value]) -> HashMap<String, DynamicModelInfo> {
     let mut models = HashMap::new();

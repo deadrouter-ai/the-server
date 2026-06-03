@@ -72,6 +72,17 @@ pub async fn router(
             )
         }
 
+        // ---- Favicon ----
+        (Method::GET, "/favicon.ico") => {
+            let icon_bytes = include_bytes!("../../static/favicon.ico");
+            let body = Full::new(Bytes::from_static(icon_bytes)).map_err(|e| match e {}).boxed();
+            (
+                StatusCode::OK,
+                vec![("Content-Type", "image/x-icon".into())],
+                body,
+            )
+        }
+
         // ---- CORS Preflight ----
         (Method::OPTIONS, _) => {
             (
@@ -102,35 +113,12 @@ pub async fn router(
             (status, headers, full_body(body))
         }
 
-        // ---- Default / catch-all ----
-        (Method::GET, _) | (Method::HEAD, _) => {
-            let onion = state
-                .onion_data
-                .read()
-                .unwrap();
-            let body = format!(
-                "GREETINGS FROM THE SECURE ENCLAVE!\n\
-                 \n\
-                 Protocol : {}\n\
-                 Method   : {}\n\
-                 URI      : {}\n\
-                 Onion    : {}\n",
-                req.protocol, req.method, req.uri, onion.onion_domain,
-            );
-            (
-                StatusCode::OK,
-                vec![("Content-Type", "text/plain; charset=utf-8".into())],
-                full_body(body),
-            )
-        }
-
-        // ---- Method not allowed ----
+        // ---- Endpoint Not Found ----
         (_, _) => {
-            let body = format!("405 Method Not Allowed: {} {}\n", req.method, req.uri);
             (
-                StatusCode::METHOD_NOT_ALLOWED,
-                vec![("Content-Type", "text/plain; charset=utf-8".into())],
-                full_body(body),
+                StatusCode::NOT_FOUND,
+                vec![],
+                Full::new(Bytes::new()).boxed(),
             )
         }
     }

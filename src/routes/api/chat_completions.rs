@@ -256,6 +256,9 @@ pub async fn handle_secure_openai_proxy(
             "redpill" => {
                 crate::providers::redpill::call_redpill_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await
             }
+            "infomaniak" => {
+                crate::providers::infomaniak::call_infomaniak(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await
+            }
             _ => {
                 Err(format!("Provider {} not implemented.", provider.id))
             }

@@ -2,6 +2,7 @@ pub mod nearai;
 pub mod utiles;
 pub mod chutes;
 pub mod redpill;
+pub mod infomaniak;
 
 use serde_json::Value;
 use crate::{AppState, ProviderConfig};
@@ -12,7 +13,11 @@ pub async fn fetch_and_update_prices(state: &AppState, provider: &ProviderConfig
     let client = &state.http_client;
 
     // Construct OpenAI compatible models URL from completion endpoint
-    let models_url = provider.endpoint.replace("/chat/completions", "/models");
+    let models_url = if provider.id == "infomaniak" {
+        "https://api.infomaniak.com/1/ai/models?with=pricing".to_string()
+    } else {
+        provider.endpoint.replace("/chat/completions", "/models")
+    };
 
     let mut req = client.get(&models_url);
     if !provider.api_key.is_empty() {
@@ -41,6 +46,8 @@ pub async fn fetch_and_update_prices(state: &AppState, provider: &ProviderConfig
         crate::providers::chutes::parse_models(data_array)
     } else if provider.id == "redpill" {
         crate::providers::redpill::parse_models(data_array)
+    } else if provider.id == "infomaniak" {
+        crate::providers::infomaniak::parse_models(data_array)
     } else {
         // Fallback or other providers
         crate::providers::nearai::parse_models(client, data_array).await

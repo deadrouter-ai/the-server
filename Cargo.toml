@@ -57,9 +57,11 @@ rusqlite = { version = "0.36", features = ["bundled"] }
 dcap-qvl = "0.5"
 flate2 = "1"
 
+dotenvy = { version = "0.15", optional = true }
+
 [features]
 default = []
-development = []
+development = ["dotenvy"]
 tracing = []
 
 [profile.release]

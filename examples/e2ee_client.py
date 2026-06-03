@@ -67,7 +67,7 @@ def send_chat_completion():
     server_pub = X25519PublicKey.from_public_bytes(server_pub_bytes)
     shared_secret = client_priv.exchange(server_pub)
 
-    model = "gpt-oss-120b"
+    model = "apertus-70b-instruct-2509"
     role = "user"
     content = "What is the capital of Chile?"
     
