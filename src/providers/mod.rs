@@ -3,6 +3,7 @@ pub mod utiles;
 pub mod chutes;
 pub mod redpill;
 pub mod infomaniak;
+pub mod tinfoil;
 
 use serde_json::Value;
 use crate::{AppState, ProviderConfig};
@@ -15,6 +16,8 @@ pub async fn fetch_and_update_prices(state: &AppState, provider: &ProviderConfig
     // Construct OpenAI compatible models URL from completion endpoint
     let models_url = if provider.id == "infomaniak" {
         "https://api.infomaniak.com/1/ai/models?with=pricing".to_string()
+    } else if provider.id == "tinfoil" {
+        "https://inference.tinfoil.sh/v1/models".to_string()
     } else {
         provider.endpoint.replace("/chat/completions", "/models")
     };
@@ -42,12 +45,14 @@ pub async fn fetch_and_update_prices(state: &AppState, provider: &ProviderConfig
     // Parse models via provider-specific parser
     let updated_models = if provider.id == "near-ai" {
         crate::providers::nearai::parse_models(client, data_array).await
-    } else if provider.id == "chutes-ai" {
+    } else if provider.id == "chutes" {
         crate::providers::chutes::parse_models(data_array)
     } else if provider.id == "redpill" {
         crate::providers::redpill::parse_models(data_array)
     } else if provider.id == "infomaniak" {
         crate::providers::infomaniak::parse_models(data_array)
+    } else if provider.id == "tinfoil" {
+        crate::providers::tinfoil::parse_models(data_array)
     } else {
         // Fallback or other providers
         crate::providers::nearai::parse_models(client, data_array).await

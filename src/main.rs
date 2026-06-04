@@ -137,6 +137,26 @@ async fn main() {
     let arc_infomaniak = Arc::new(infomaniak_ai);
     providers.insert(arc_infomaniak.id.clone(), arc_infomaniak.clone());
 
+    // Tinfoil Provider
+    let tinfoil_key = if is_dev {
+        std::env::var("TINFOIL_API_KEY").unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    let tinfoil_ai = ProviderConfig {
+        id: "tinfoil".to_string(),
+        location: "us".to_string(),
+        endpoint: "https://inference.tinfoil.sh/v1/chat/completions".to_string(),
+        api_key: tinfoil_key,
+        privacy_rating: 5,
+        zdr: true, zds: true, tee: true,
+        dynamic_state: tokio::sync::RwLock::new(ProviderDynamicState::default()),
+    };
+
+    let arc_tinfoil = Arc::new(tinfoil_ai);
+    providers.insert(arc_tinfoil.id.clone(), arc_tinfoil.clone());
+
     let strict_provider = Arc::new(connections::crypto::hardened_crypto_provider());
 
     let tls_pins = Arc::new(tokio::sync::RwLock::new(HashMap::new()));
@@ -191,6 +211,15 @@ async fn main() {
         }
     });
 
+    let tinfoil_client = match tinfoil::Client::new_default().await {
+        Ok(c) => c,
+        Err(e) => {
+            println!("[WARN] Failed to initialize Tinfoil client securely: {}", e);
+            // Fallback for dev if TINFOIL_API_KEY is not set or auth fails
+            tinfoil::Client::new("", "", "").await.unwrap_or_else(|_| panic!("Failed to init fallback Tinfoil client"))
+        }
+    };
+
     let state = Arc::new(AppState::new(
         http_client,
         near_ai_client,
@@ -199,6 +228,7 @@ async fn main() {
         providers,
         routing_table,
         ticket_secrets,
+        tinfoil_client,
     ));
 
     // ---- Spawn Dynamic Pricing background update tasks ----

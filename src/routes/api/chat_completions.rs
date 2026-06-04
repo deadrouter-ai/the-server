@@ -250,7 +250,7 @@ pub async fn handle_secure_openai_proxy(
             "near-ai" => {
                 call_near_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await
             }
-            "chutes-ai" => {
+            "chutes" => {
                 crate::providers::chutes::call_chutes_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await
             }
             "redpill" => {
@@ -258,6 +258,9 @@ pub async fn handle_secure_openai_proxy(
             }
             "infomaniak" => {
                 crate::providers::infomaniak::call_infomaniak(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await
+            }
+            "tinfoil" => {
+                crate::providers::tinfoil::call_tinfoil(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await
             }
             _ => {
                 Err(format!("Provider {} not implemented.", provider.id))

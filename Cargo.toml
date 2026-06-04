@@ -33,6 +33,7 @@ curve25519-dalek = "4"
 x25519-dalek = "2"
 x509-parser = "0.18"
 zeroize = "1.8"
+tinfoil = { git = "https://github.com/tinfoilsh/tinfoil-rs" }
 
 # Tor / Arti
 arti-client = { version = "0.43", default-features = false, features = ["onion-service-service", "rustls", "tokio", "vanguards", "compression"] }

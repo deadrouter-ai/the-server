@@ -1,6 +1,88 @@
 use askama::Template;
 use hyper::StatusCode;
 use crate::{AppState, IncomingRequest};
+use std::cmp::Ordering;
+
+#[derive(PartialEq, PartialOrd, Debug)]
+enum SortChunk {
+    Text(String),
+    Num(f64),
+}
+
+fn extract_sort_chunks(s: &str) -> Vec<SortChunk> {
+    let mut chunks = Vec::new();
+    let mut chars = s.chars().peekable();
+    
+    while chars.peek().is_some() {
+        if chars.peek().unwrap().is_ascii_digit() {
+            let mut num_str = String::new();
+            let mut has_dot = false;
+            while let Some(&nc) = chars.peek() {
+                if nc.is_ascii_digit() {
+                    num_str.push(nc);
+                    chars.next();
+                } else if nc == '.' && !has_dot {
+                    let mut clone_iter = chars.clone();
+                    clone_iter.next();
+                    if let Some(&nnc) = clone_iter.peek() {
+                        if nnc.is_ascii_digit() {
+                            num_str.push(nc);
+                            has_dot = true;
+                            chars.next();
+                            continue;
+                        }
+                    }
+                    break;
+                } else {
+                    break;
+                }
+            }
+            if let Ok(n) = num_str.parse::<f64>() {
+                chunks.push(SortChunk::Num(n));
+            } else {
+                chunks.push(SortChunk::Text(num_str));
+            }
+        } else {
+            let mut text_str = String::new();
+            while let Some(&nc) = chars.peek() {
+                if !nc.is_ascii_digit() {
+                    text_str.push(nc.to_ascii_lowercase());
+                    chars.next();
+                } else {
+                    break;
+                }
+            }
+            chunks.push(SortChunk::Text(text_str));
+        }
+    }
+    chunks
+}
+
+fn compare_model_names(a: &str, b: &str) -> Ordering {
+    let chunks_a = extract_sort_chunks(a);
+    let chunks_b = extract_sort_chunks(b);
+    
+    let len = chunks_a.len().min(chunks_b.len());
+    for i in 0..len {
+        match (&chunks_a[i], &chunks_b[i]) {
+            (SortChunk::Text(t1), SortChunk::Text(t2)) => {
+                match t1.cmp(t2) {
+                    Ordering::Equal => continue,
+                    other => return other,
+                }
+            }
+            (SortChunk::Num(n1), SortChunk::Num(n2)) => {
+                match n2.partial_cmp(n1).unwrap_or(Ordering::Equal) {
+                    Ordering::Equal => continue,
+                    other => return other,
+                }
+            }
+            (SortChunk::Text(_), SortChunk::Num(_)) => return Ordering::Greater,
+            (SortChunk::Num(_), SortChunk::Text(_)) => return Ordering::Less,
+        }
+    }
+    chunks_a.len().cmp(&chunks_b.len())
+}
 
 #[derive(Clone)]
 pub struct RenderModelItem {
@@ -23,6 +105,9 @@ pub struct ModelsTemplate {
     pub onion_site: String,
     pub models: Vec<RenderModelItem>,
     pub search_query: String,
+    pub filter_zdr: bool,
+    pub filter_zds: bool,
+    pub filter_tee: bool,
 }
 
 pub fn get_model_details(model_id: &str) -> (String, String, Option<String>) {
@@ -37,7 +122,7 @@ pub fn get_model_details(model_id: &str) -> (String, String, Option<String>) {
 
         // -- Gemma --
         "gemma-3-27b-it" => Some(("Gemma 3 27B", "Google’s lightweight golden child that quietly carries your structured reasoning tasks on its back. It writes shockingly elegant code for its weight class, politely refusing to hallucinate while sipping on a fraction of the VRAM your other bloated models demand.", Some("/logos/gemma.svg"))),
-        "gemma-4-26b-a4b-uncensored" => Some(("Gemma 4 Uncensored", "Corporate alignment guidelines? Never heard of her. This completely unfiltered variant of Gemma 4 has been permanently banned from Google HR. It will gleefully fulfill your most unhinged prompts with raw, unbiased precision, so please use it responsibly.", Some("/logos/gemma.svg"))),
+        "gemma-4-26b-a4b-uncensored" => Some(("Gemma 4 26B Uncensored", "Corporate alignment guidelines? Never heard of her. This completely unfiltered variant of Gemma 4 has been permanently banned from Google HR. It will gleefully fulfill your most unhinged prompts with raw, unbiased precision, so please use it responsibly.", Some("/logos/gemma.svg"))),
         "gemma-4-31b-it" => Some(("Gemma 4 31B", "Google’s next-generation workhorse that simultaneously juggles tool calls, massive contexts, and five different languages without breaking a sweat. It’s basically a pocket-sized supercomputer that effortlessly translates your bizarre late-night shower thoughts into pristine, actionable Python scripts.", Some("/logos/gemma.svg"))),
 
         // -- GLM --
@@ -110,13 +195,19 @@ fn format_price_1m(price: f64) -> String {
     if price == 0.0 {
         return "0.00".to_string();
     }
-    if price < 0.01 {
+    let formatted = if price < 0.01 {
         format!("{:.4}", price)
     } else if price < 0.1 {
         format!("{:.3}", price)
     } else {
         format!("{:.2}", price)
+    };
+    
+    let mut s = formatted.trim_end_matches('0').to_string();
+    if s.ends_with('.') {
+        s.pop();
     }
+    s
 }
 
 fn url_decode(s: &str) -> String {
@@ -154,6 +245,10 @@ pub async fn handle_models_page(
 ) -> (StatusCode, Vec<(&'static str, String)>, String) {
     // 1. Parse search query from URI
     let mut search_query = String::new();
+    let mut filter_zdr = false;
+    let mut filter_zds = false;
+    let mut filter_tee = false;
+
     if let Some(query) = req.uri.query() {
         for pair in query.split('&') {
             if let Some((k, v)) = pair.split_once('=') {
@@ -161,6 +256,12 @@ pub async fn handle_models_page(
                     search_query = url_decode(v)
                         .trim()
                         .to_lowercase();
+                } else if k == "zdr" && v == "1" {
+                    filter_zdr = true;
+                } else if k == "zds" && v == "1" {
+                    filter_zds = true;
+                } else if k == "tee" && v == "1" {
+                    filter_tee = true;
                 }
             }
         }
@@ -225,6 +326,10 @@ pub async fn handle_models_page(
                 }
             }
 
+            if filter_zdr && !zdr_any { continue; }
+            if filter_zds && !zds_any { continue; }
+            if filter_tee && !tee_any { continue; }
+
             let logo_letter = name.chars().find(|c| c.is_alphanumeric()).unwrap_or('A').to_string().to_uppercase();
 
             model_items.push(RenderModelItem {
@@ -242,7 +347,7 @@ pub async fn handle_models_page(
         }
     }
 
-    model_items.sort_by(|a, b| a.id.cmp(&b.id));
+    model_items.sort_by(|a, b| compare_model_names(&a.name, &b.name));
 
     // 3. Generate a secure, 64-character random nonce
     let mut rand_bytes = [0u8; 32];
@@ -258,6 +363,9 @@ pub async fn handle_models_page(
         onion_site,
         models: model_items,
         search_query: if search_query.is_empty() { String::new() } else { search_query },
+        filter_zdr,
+        filter_zds,
+        filter_tee,
     };
 
     // 5. Render the HTML

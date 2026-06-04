@@ -14,7 +14,7 @@ use crate::DynamicModelInfo;
 
 pub fn parse_models(data_array: &[Value]) -> HashMap<String, DynamicModelInfo> {
     let mut models: HashMap<String, DynamicModelInfo> = HashMap::new();
-    let allowed_providers = ["chutes", "near-ai", "secretai", "tinfoil", "phala"];
+    let allowed_providers = ["chutes", "near-ai", "secretai", "tinfoil", "phala", "0g"];
 
     for model_val in data_array {
         // Strict Provider filtering

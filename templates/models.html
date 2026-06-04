@@ -170,6 +170,46 @@
             color: var(--text-sub);
         }
 
+        /* Filter Toggles Styling */
+        .filter-toggles {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .filter-toggle:hover {
+            border-color: rgba(125, 70, 152, 0.4);
+            background: rgba(125, 70, 152, 0.1);
+        }
+
+        .filter-toggle input[type="checkbox"] {
+            accent-color: var(--primary);
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .filter-toggle span {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
         /* Navigation */
         nav {
             padding: 1.25rem 0;
@@ -1050,10 +1090,29 @@
 
             <!-- Sleek CSS-only Search Bar -->
             <div class="search-container">
-                <form method="GET" action="/models" class="search-form">
-                    <input type="text" name="q" placeholder="Search models (e.g., Llama, Qwen)..."
-                        value="{{ search_query }}" class="search-input" />
-                    <button type="submit" class="btn btn-primary btn-sm search-btn">Search</button>
+                <form method="GET" action="/models">
+                    <div class="search-form">
+                        <input type="text" name="q" placeholder="Search models (e.g., Llama, Qwen)..."
+                            value="{{ search_query }}" class="search-input" />
+                        <button type="submit" class="btn btn-primary btn-sm search-btn">Search</button>
+                    </div>
+                    <div class="filter-toggles">
+                        <label class="filter-toggle">
+                            <input type="checkbox" name="zdr" value="1" {% if filter_zdr %}checked{% endif %}
+                                onchange="this.form.submit()">
+                            <span>ZDR Only</span>
+                        </label>
+                        <label class="filter-toggle">
+                            <input type="checkbox" name="zds" value="1" {% if filter_zds %}checked{% endif %}
+                                onchange="this.form.submit()">
+                            <span>ZDS Only</span>
+                        </label>
+                        <label class="filter-toggle">
+                            <input type="checkbox" name="tee" value="1" {% if filter_tee %}checked{% endif %}
+                                onchange="this.form.submit()">
+                            <span>TEE Only</span>
+                        </label>
+                    </div>
                 </form>
             </div>
         </header>
@@ -1063,17 +1122,20 @@
                 {% if models.is_empty() %}
                 <div class="empty-state-card">
                     <div class="empty-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                            stroke-linejoin="round">
                             <circle cx="11" cy="11" r="8"></circle>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                         </svg>
                     </div>
                     {% if search_query.is_empty() %}
                     <h3>No Models Available</h3>
-                    <p>There are currently no active models on the DeadRouter network. Please check your provider configuration or try again later.</p>
+                    <p>There are currently no active models on the DeadRouter network. Please check your provider
+                        configuration or try again later.</p>
                     {% else %}
                     <h3>No Models Found</h3>
-                    <p>We couldn't find any models matching "<span class="highlight">{{ search_query }}</span>". Try adjusting your search query.</p>
+                    <p>We couldn't find any models matching "<span class="highlight">{{ search_query }}</span>". Try
+                        adjusting your search query.</p>
                     <a href="/models" class="btn btn-secondary btn-sm" style="margin-top: 0.5rem;">Clear Search</a>
                     {% endif %}
                 </div>

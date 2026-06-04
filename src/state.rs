@@ -106,6 +106,7 @@ pub struct AppState {
     pub providers: HashMap<String, Arc<ProviderConfig>>,
     pub routing_table: tokio::sync::RwLock<HashMap<String, Vec<String>>>,
     pub ticket_secrets: Arc<tokio::sync::RwLock<crate::crypto_e2ee::TicketSecrets>>,
+    pub tinfoil_client: tinfoil::Client,
 }
 
 impl AppState {
@@ -117,6 +118,7 @@ impl AppState {
         providers: HashMap<String, Arc<ProviderConfig>>,
         routing_table: HashMap<String, Vec<String>>,
         ticket_secrets: Arc<tokio::sync::RwLock<crate::crypto_e2ee::TicketSecrets>>,
+        tinfoil_client: tinfoil::Client,
     ) -> Self {
         Self {
             onion_data: std::sync::RwLock::new(OnionData::new()),
@@ -129,6 +131,7 @@ impl AppState {
             providers,
             routing_table: tokio::sync::RwLock::new(routing_table),
             ticket_secrets,
+            tinfoil_client,
         }
     }
 }
