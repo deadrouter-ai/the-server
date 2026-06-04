@@ -159,6 +159,11 @@ pub async fn router(
             (status, headers, full_body(body))
         }
 
+        // ---- Near AI Key Proxy ----
+        (Method::GET, path) if path.starts_with("/v1/models/nearai/") && path.ends_with("/key") => {
+            crate::routes::api::keys::handle_nearai_model_key(state, req).await
+        }
+
         // ---- Endpoint Not Found ----
         (_, _) => {
             (

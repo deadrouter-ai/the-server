@@ -174,6 +174,15 @@ pub async fn handle_secure_openai_proxy(
     }
 
     // 3. Resolve provider
+    let mut nearai_passthrough_pubkey: Option<String> = None;
+    if req.headers.get("x-nearai-e2ee-enabled").map(|s| s.as_str()) == Some("true") {
+        if let Some(pubkey) = req.headers.get("x-nearai-client-pub-key") {
+            nearai_passthrough_pubkey = Some(pubkey.to_string());
+        } else {
+            return json_error(StatusCode::BAD_REQUEST, "X-NearAI-E2EE-Enabled is true but X-NearAI-Client-Pub-Key is missing");
+        }
+    }
+
     let model_name = proxy_req.model.to_lowercase();
     let is_streaming = proxy_req.stream;
     
@@ -193,6 +202,14 @@ pub async fn handle_secure_openai_proxy(
     if let Some(true) = proxy_req.zdr { available_providers.retain(|p| p.zdr); }
     if let Some(true) = proxy_req.zds { available_providers.retain(|p| p.zds); }
     if let Some(true) = proxy_req.tee { available_providers.retain(|p| p.tee); }
+
+    // When client uses Near AI direct E2EE, only near-ai can handle the encrypted payload
+    if nearai_passthrough_pubkey.is_some() {
+        available_providers.retain(|p| p.id == "near-ai");
+        if available_providers.is_empty() {
+            return json_error(StatusCode::BAD_REQUEST, "X-NearAI-E2EE-Enabled requires a model supported by the 'near-ai' provider.");
+        }
+    }
 
     if let Some(user_list) = &proxy_req.provider {
         let mut matched = Vec::new();
@@ -248,7 +265,7 @@ pub async fn handle_secure_openai_proxy(
         // Dispatch based on provider ID
         let result = match provider.id.as_str() {
             "near-ai" => {
-                call_near_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await
+                call_near_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone(), nearai_passthrough_pubkey.clone()).await
             }
             "chutes" => {
                 crate::providers::chutes::call_chutes_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await

@@ -213,14 +213,14 @@ pub async fn fetch_near_ai_model_key(
     let resp = client.get(&url).send().await.map_err(|e| format!("Network error fetching attestation: {}", e))?;
     let json: Value = resp.json().await.map_err(|e| format!("Failed to parse attestation JSON: {}", e))?;
 
-    let signing_key_hex = json.get("signing_address").and_then(|v| v.as_str())
-        .or_else(|| json.get("signing_public_key").and_then(|v| v.as_str()))
-        .or_else(|| json.get("model_attestations").and_then(|a| a.get(0)).and_then(|m| m.get("signing_address")).and_then(|v| v.as_str()))
+    let signing_key_hex = json.get("signing_public_key").and_then(|v| v.as_str())
+        .or_else(|| json.get("signing_address").and_then(|v| v.as_str()))
         .or_else(|| json.get("model_attestations").and_then(|a| a.get(0)).and_then(|m| m.get("signing_public_key")).and_then(|v| v.as_str()))
+        .or_else(|| json.get("model_attestations").and_then(|a| a.get(0)).and_then(|m| m.get("signing_address")).and_then(|v| v.as_str()))
         .ok_or_else(|| "FATAL: Missing signing key in attestation response".to_string())?;
 
     let mut key_bytes = [0u8; 32];
-    hex::decode_to_slice(signing_key_hex, &mut key_bytes)
+    hex::decode_to_slice(signing_key_hex.trim_start_matches("0x"), &mut key_bytes)
         .map_err(|_| format!("Invalid hex in model key: {}", signing_key_hex))?;
 
     let intel_quote_opt = json.get("intel_quote").and_then(|v| v.as_str())
@@ -622,6 +622,7 @@ async fn process_near_ai_response(
     price_output_1m: f64,
     client_secret: Zeroizing<[u8; 32]>,
     e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
+    skip_decryption: bool,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
     if is_streaming {
         let stream_err_mapper = resp.bytes_stream().map(|res| res.map_err(|e| IoError::new(std::io::ErrorKind::Other, e)));
@@ -671,7 +672,7 @@ async fn process_near_ai_response(
                                             for choice in choices.iter_mut() {
                                                 if let Some(delta) = choice.get_mut("delta").and_then(|d| d.as_object_mut()) {
                                                     if let Some(enc_content) = delta.get("content").and_then(|v| v.as_str()) {
-                                                        if enc_content.len() >= 112 {
+                                                        if enc_content.len() >= 112 && !skip_decryption {
                                                             match v2_decrypt(enc_content, &client_secret_clone) {
                                                                 Ok(plain) => {
                                                                     delta.insert("content".to_string(), Value::String(plain));
@@ -684,7 +685,7 @@ async fn process_near_ai_response(
                                                         }
                                                     }
                                                     if let Some(enc_reasoning) = delta.get("reasoning_content").and_then(|v| v.as_str()) {
-                                                        if enc_reasoning.len() >= 112 {
+                                                        if enc_reasoning.len() >= 112 && !skip_decryption {
                                                             match v2_decrypt(enc_reasoning, &client_secret_clone) {
                                                                 Ok(plain) => {
                                                                     delta.insert("reasoning_content".to_string(), Value::String(plain));
@@ -768,8 +769,15 @@ async fn process_near_ai_response(
             }
         };
 
-        let wrapped = wrap_stream_with_timing_padding(Box::pin(stream), e2ee_session);
-        Ok(BodyExt::boxed(StreamBody::new(wrapped)))
+        if skip_decryption {
+            // In passthrough mode, emit each SSE chunk individually.
+            // The timing padding wrapper aggregates multiple chunks which would
+            // concatenate separate encrypted hex payloads, making them undecryptable.
+            Ok(BodyExt::boxed(StreamBody::new(Box::pin(stream))))
+        } else {
+            let wrapped = wrap_stream_with_timing_padding(Box::pin(stream), e2ee_session);
+            Ok(BodyExt::boxed(StreamBody::new(wrapped)))
+        }
             
     } else {
         match resp.json::<Value>().await {
@@ -786,14 +794,14 @@ async fn process_near_ai_response(
                     for choice in choices.iter_mut() {
                         if let Some(message) = choice.get_mut("message").and_then(|m| m.as_object_mut()) {
                             if let Some(enc_content) = message.get("content").and_then(|v| v.as_str()) {
-                                if enc_content.len() >= 112 {
+                                if enc_content.len() >= 112 && !skip_decryption {
                                     if let Ok(plain) = v2_decrypt(enc_content, &client_secret) {
                                         message.insert("content".to_string(), Value::String(plain));
                                     }
                                 }
                             }
                             if let Some(enc_reasoning) = message.get("reasoning_content").and_then(|v| v.as_str()) {
-                                if enc_reasoning.len() >= 112 {
+                                if enc_reasoning.len() >= 112 && !skip_decryption {
                                     if let Ok(plain) = v2_decrypt(enc_reasoning, &client_secret) {
                                         message.insert("reasoning_content".to_string(), Value::String(plain));
                                     }
@@ -848,6 +856,7 @@ pub async fn call_near_ai(
     client_wants_usage: bool,
     frontend_requested_model: String,
     e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
+    nearai_passthrough_pubkey: Option<String>,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
     if proxy_req.stream { proxy_req.stream_options = Some(StreamOptions { include_usage: true }); }
 
@@ -916,14 +925,22 @@ pub async fn call_near_ai(
 
     // E2EE Encryption
     proxy_req.model = upstream_model_name;
-    let upstream_session = E2eeSession::new();
     
-    // Encrypt sensitive content immediately
-    for msg in proxy_req.messages.iter_mut() {
-        let encrypted = v2_encrypt(msg.content.as_bytes(), &model_x25519_bytes)?;
-        msg.content = encrypted;
-    }
+    let mut upstream_session_secret = Zeroizing::new([0u8; 32]);
+    let client_pub_hex = if let Some(pubkey) = nearai_passthrough_pubkey {
+        pubkey
+    } else {
+        let upstream_session = E2eeSession::new();
+        for msg in proxy_req.messages.iter_mut() {
+            let encrypted = v2_encrypt(msg.content.as_bytes(), &model_x25519_bytes)?;
+            msg.content = encrypted;
+        }
+        upstream_session_secret.copy_from_slice(&*upstream_session.x25519_secret);
+        upstream_session.client_pub_hex
+    };
     
+    let skip_decryption = client_pub_hex.len() > 0 && upstream_session_secret.iter().all(|&b| b == 0);
+
     let req_body = serde_json::to_vec(&proxy_req).map_err(|e| e.to_string())?;
 
     let chat_url = format!("{}/v1/chat/completions", direct_url);
@@ -933,7 +950,7 @@ pub async fn call_near_ai(
         .header("Authorization", format!("Bearer {}", provider.api_key))
         .header("Content-Type", "application/json")
         .header("X-Signing-Algo", "ed25519")
-        .header("X-Client-Pub-Key", &upstream_session.client_pub_hex)
+        .header("X-Client-Pub-Key", &client_pub_hex)
         .header("X-Encryption-Version", "2")
         .body(req_body)
         .send()
@@ -956,7 +973,8 @@ pub async fn call_near_ai(
         provider.id.clone(),
         price_input,
         price_output,
-        upstream_session.x25519_secret,
+        upstream_session_secret,
         e2ee_session,
+        skip_decryption,
     ).await
 }

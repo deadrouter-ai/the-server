@@ -109,7 +109,7 @@ async fn main() {
         endpoint: "https://api.redpill.ai/v1/chat/completions".to_string(),
         api_key: redpill_key,
         privacy_rating: 4,
-        zdr: true, zds: true, tee: false,
+        zdr: true, zds: true, tee: true,
         dynamic_state: tokio::sync::RwLock::new(ProviderDynamicState::default()),
     };
 
