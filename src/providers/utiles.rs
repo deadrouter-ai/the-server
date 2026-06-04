@@ -19,7 +19,6 @@ pub fn sanitize_and_spoof_response(
     provider_id: &str,
     price_input: f64,
     price_output: f64,
-    markup: f64,
     total_input_tokens: &mut f64,
     total_output_tokens: &mut f64,
     mut e2ee_ratchet: Option<&mut crate::crypto_e2ee::StreamRatchet>,
@@ -129,8 +128,7 @@ pub fn sanitize_and_spoof_response(
             *total_input_tokens = prompt;
             *total_output_tokens = completion;
 
-            let markup_factor = 1.0 + (markup / 100.0);
-            let custom_cost = ((prompt / 1_000_000.0) * price_input + (completion / 1_000_000.0) * price_output) * markup_factor;
+            let custom_cost = (prompt / 1_000_000.0) * price_input + (completion / 1_000_000.0) * price_output;
 
             let rounded_cost = (custom_cost * 10_000_000_000.0).round() / 10_000_000_000.0;
             let formatted_cost = format!("{:.8}", rounded_cost);

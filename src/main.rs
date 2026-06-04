@@ -70,7 +70,6 @@ async fn main() {
         api_key: near_ai_key,
         privacy_rating: 5,
         zdr: true, zds: true, tee: true,
-        markup: 15.0,
         dynamic_state: tokio::sync::RwLock::new(ProviderDynamicState::default()),
     };
 
@@ -91,7 +90,6 @@ async fn main() {
         api_key: chutes_key,
         privacy_rating: 5,
         zdr: true, zds: true, tee: true,
-        markup: 15.0,
         dynamic_state: tokio::sync::RwLock::new(ProviderDynamicState::default()),
     };
     
@@ -112,7 +110,6 @@ async fn main() {
         api_key: redpill_key,
         privacy_rating: 4,
         zdr: true, zds: true, tee: false,
-        markup: 10.0,
         dynamic_state: tokio::sync::RwLock::new(ProviderDynamicState::default()),
     };
 
@@ -134,7 +131,6 @@ async fn main() {
         api_key: infomaniak_key,
         privacy_rating: 4,
         zdr: true, zds: true, tee: false,
-        markup: 15.0,
         dynamic_state: tokio::sync::RwLock::new(ProviderDynamicState::default()),
     };
 

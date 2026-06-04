@@ -145,7 +145,6 @@
 
         section {
             padding: 8rem 0 0 0;
-            border-bottom: 1px solid var(--border);
             position: relative;
             background-color: var(--bg-base);
             font-family: var(--font-sans);
@@ -456,7 +455,7 @@
             text-align: left;
         }
 
-        .terminal-row > span:last-child:not(.terminal-blink) {
+        .terminal-row>span:last-child:not(.terminal-blink) {
             flex: 1;
             min-width: 0;
             word-break: break-word;
@@ -542,14 +541,37 @@
             animation: terminal-reveal 0.4s ease forwards;
         }
 
-        .delay-1 { animation-delay: 0.2s; }
-        .delay-2 { animation-delay: 1.0s; }
-        .delay-3 { animation-delay: 1.8s; }
-        .delay-4 { animation-delay: 2.6s; }
-        .delay-5 { animation-delay: 3.4s; }
-        .delay-6 { animation-delay: 4.2s; }
-        .delay-7 { animation-delay: 5.0s; }
-        .delay-8 { animation-delay: 5.8s; }
+        .delay-1 {
+            animation-delay: 0.2s;
+        }
+
+        .delay-2 {
+            animation-delay: 1.0s;
+        }
+
+        .delay-3 {
+            animation-delay: 1.8s;
+        }
+
+        .delay-4 {
+            animation-delay: 2.6s;
+        }
+
+        .delay-5 {
+            animation-delay: 3.4s;
+        }
+
+        .delay-6 {
+            animation-delay: 4.2s;
+        }
+
+        .delay-7 {
+            animation-delay: 5.0s;
+        }
+
+        .delay-8 {
+            animation-delay: 5.8s;
+        }
 
         @keyframes terminal-reveal {
             from {
@@ -1576,14 +1598,22 @@
                         <div class="terminal-title">deadrouter@enclave:~$</div>
                     </div>
                     <div class="terminal-body">
-                        <div class="terminal-row terminal-line delay-1"><span class="terminal-prompt">$</span><span>deadrouter --init-routing --tor --tee</span></div>
-                        <div class="terminal-row success terminal-line delay-2"><span>[+] AMD SEV-SNP TEE initialized successfully.</span></div>
-                        <div class="terminal-row success terminal-line delay-3"><span>[+] Local loopback secured: no persistent storage active.</span></div>
-                        <div class="terminal-row warning terminal-line delay-4"><span>[!] Warning: Zero Data Scanning (ZDS) enforcement active.</span></div>
-                        <div class="terminal-row terminal-line delay-5"><span class="terminal-prompt">$</span><span>curl socks5h://deadrouter.onion/status</span></div>
-                        <div class="terminal-row accent terminal-line delay-6"><span>{ "status": "anonymous", "identity_stripped": true, "chile_jurisdiction": true }</span></div>
-                        <div class="terminal-row success terminal-line delay-7"><span>[+] System ready. Securing all incoming prompts.</span></div>
-                        <div class="terminal-row terminal-line delay-8"><span class="terminal-prompt">$</span><span class="terminal-blink">_</span></div>
+                        <div class="terminal-row terminal-line delay-1"><span
+                                class="terminal-prompt">$</span><span>deadrouter --init-routing --tor --tee</span></div>
+                        <div class="terminal-row success terminal-line delay-2"><span>[+] AMD SEV-SNP TEE initialized
+                                successfully.</span></div>
+                        <div class="terminal-row success terminal-line delay-3"><span>[+] Local loopback secured: no
+                                persistent storage active.</span></div>
+                        <div class="terminal-row warning terminal-line delay-4"><span>[!] Warning: Zero Data Scanning
+                                (ZDS) enforcement active.</span></div>
+                        <div class="terminal-row terminal-line delay-5"><span class="terminal-prompt">$</span><span>curl
+                                socks5h://deadrouter.onion/status</span></div>
+                        <div class="terminal-row accent terminal-line delay-6"><span>{ "status": "anonymous",
+                                "identity_stripped": true, "chile_jurisdiction": true }</span></div>
+                        <div class="terminal-row success terminal-line delay-7"><span>[+] System ready. Securing all
+                                incoming prompts.</span></div>
+                        <div class="terminal-row terminal-line delay-8"><span class="terminal-prompt">$</span><span
+                                class="terminal-blink">_</span></div>
                     </div>
                     <div class="terminal-overlay-badge">SNP ENCLAVE ACTIVE</div>
                 </div>

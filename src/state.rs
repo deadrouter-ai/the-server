@@ -88,8 +88,6 @@ pub struct ProviderConfig {
     pub zdr: bool,
     pub zds: bool,
     pub tee: bool,
-    /// The markup percentage applied to this provider's model pricing (e.g. 5.0 for 5%).
-    pub markup: f64,
     /// Thread-safe lock over mutable tracking structures like cached keys and models.
     pub dynamic_state: tokio::sync::RwLock<ProviderDynamicState>,
 }

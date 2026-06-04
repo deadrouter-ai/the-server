@@ -910,7 +910,6 @@ pub async fn call_chutes_ai(
             frontend_requested_model, provider.id.clone(),
             price_input_1m, price_output_1m,
             e2ee_req.response_sk,
-            provider.markup,
             e2ee_session,
         ).await;
     }
@@ -928,7 +927,6 @@ async fn process_chutes_response(
     price_input_1m: f64,
     price_output_1m: f64,
     response_sk: DecapsulationKey,
-    markup: f64,
     e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
 ) -> Result<BoxBody<Bytes, std::convert::Infallible>, String> {
     if is_streaming {
@@ -993,7 +991,7 @@ async fn process_chutes_response(
 
                                             let sanitized = sanitize_and_spoof_response(
                                                 json, &chat_id, &requested_model, &provider_id,
-                                                price_input_1m, price_output_1m, markup,
+                                                price_input_1m, price_output_1m,
                                                 &mut total_input_tokens, &mut total_output_tokens,
                                                 None
                                             );
@@ -1012,7 +1010,7 @@ async fn process_chutes_response(
                             if event.get("usage").is_some() {
                                 let sanitized = sanitize_and_spoof_response(
                                     event, &chat_id, &requested_model, &provider_id,
-                                    price_input_1m, price_output_1m, markup,
+                                    price_input_1m, price_output_1m,
                                     &mut total_input_tokens, &mut total_output_tokens,
                                     None
                                 );
@@ -1043,7 +1041,7 @@ async fn process_chutes_response(
         let mut ratchet = e2ee_session.as_ref().map(|s| s.get_stream_ratchet());
         let sanitized = sanitize_and_spoof_response(
             decrypted_json, &chat_id, &requested_model, &provider_id,
-            price_input_1m, price_output_1m, markup,
+            price_input_1m, price_output_1m,
             &mut total_in, &mut total_out,
             ratchet.as_mut()
         );

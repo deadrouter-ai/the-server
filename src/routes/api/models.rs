@@ -123,9 +123,8 @@ pub async fn handle_models_list(
                 let state_read = provider.dynamic_state.read().await;
                 if let Some(info) = state_read.dynamic_models.get(model_name) {
                     
-                    let markup_factor = 1.0 + (provider.markup / 100.0);
-                    let final_input = crate::currency::convert_usd_to(info.price_input_1m * markup_factor, target_currency);
-                    let final_output = crate::currency::convert_usd_to(info.price_output_1m * markup_factor, target_currency);
+                    let final_input = crate::currency::convert_usd_to(info.price_input_1m, target_currency);
+                    let final_output = crate::currency::convert_usd_to(info.price_output_1m, target_currency);
 
                     let final_input = crate::currency::round_nice(final_input);
                     let final_output = crate::currency::round_nice(final_output);

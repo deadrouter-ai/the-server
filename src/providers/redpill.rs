@@ -120,7 +120,6 @@ pub async fn call_redpill_ai(
         return Err(format!("Upstream error: {} - {}", status, cleaned_body));
     }
 
-    let markup = provider.markup;
     let provider_id = provider.id.clone();
     
     if proxy_req.stream {
@@ -146,7 +145,7 @@ pub async fn call_redpill_ai(
                                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(data_str) {
                                     let sanitized = sanitize_and_spoof_response(
                                         json, &chat_id, &frontend_requested_model, &provider_id,
-                                        price_input, price_output, markup,
+                                        price_input, price_output,
                                         &mut total_in, &mut total_out,
                                         None
                                     );
@@ -176,7 +175,7 @@ pub async fn call_redpill_ai(
              let mut ratchet = e2ee_session.as_ref().map(|s| s.get_stream_ratchet());
              let sanitized = sanitize_and_spoof_response(
                  json, &chat_id, &frontend_requested_model, &provider_id,
-                 price_input, price_output, markup,
+                 price_input, price_output,
                  &mut total_in, &mut total_out,
                  ratchet.as_mut()
              );

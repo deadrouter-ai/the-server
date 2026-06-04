@@ -703,7 +703,7 @@ async fn process_near_ai_response(
                                         if !is_corrupt {
                                             let sanitized_json = sanitize_and_spoof_response(
                                                 json, &chat_id, &requested_model, &provider_id,
-                                                price_input_1m, price_output_1m, provider.markup, &mut total_input_tokens, &mut total_output_tokens,
+                                                price_input_1m, price_output_1m, &mut total_input_tokens, &mut total_output_tokens,
                                                 None
                                             );
 
@@ -809,7 +809,7 @@ async fn process_near_ai_response(
                 let mut ratchet = e2ee_session.as_ref().map(|s| s.get_stream_ratchet());
                 let mut sanitized_json = sanitize_and_spoof_response(
                     json_resp, &chat_id, &requested_model, &provider_id,
-                    price_input_1m, price_output_1m, provider.markup, &mut in_tok, &mut out_tok,
+                    price_input_1m, price_output_1m, &mut in_tok, &mut out_tok,
                     ratchet.as_mut()
                 );
 
