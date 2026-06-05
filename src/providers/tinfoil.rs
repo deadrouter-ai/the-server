@@ -11,7 +11,7 @@ use tinfoil::chat::CreateChatCompletionRequest;
 use crate::{AppState, ProviderConfig};
 use crate::routes::api::chat_completions::{ChatCompletionRequest};
 use http_body_util::combinators::BoxBody;
-use crate::providers::utiles::{sanitize_and_spoof_response, wrap_stream_with_timing_padding};
+use crate::utils::{sanitize_and_spoof_response, wrap_stream_with_timing_padding};
 
 pub fn parse_models(data_array: &[Value]) -> HashMap<String, crate::DynamicModelInfo> {
     let mut models = HashMap::new();
@@ -32,8 +32,8 @@ pub fn parse_models(data_array: &[Value]) -> HashMap<String, crate::DynamicModel
             false
         };
         
-        if is_text_model && (owned_by == "tinfoil" || has_tinfoil_provider) {
-            if let Some(id) = model_val.get("id").and_then(|v| v.as_str()) {
+        if is_text_model && (owned_by == "tinfoil" || has_tinfoil_provider)
+            && let Some(id) = model_val.get("id").and_then(|v| v.as_str()) {
                 let mut name = id.to_string();
                 
                 if name == "glm-5-1" {
@@ -82,7 +82,6 @@ pub fn parse_models(data_array: &[Value]) -> HashMap<String, crate::DynamicModel
                     direct_endpoint: None,
                 });
             }
-        }
     }
     models
 }
@@ -141,7 +140,7 @@ pub async fn call_tinfoil(
                     Ok(response) => {
                         let json = serde_json::to_value(response).unwrap();
                         let is_usage_chunk = json.get("usage").is_some() && 
-                                            json.get("choices").and_then(|c| c.as_array()).map_or(true, |a| a.is_empty());
+                                            json.get("choices").and_then(|c| c.as_array()).is_none_or(|a| a.is_empty());
                                             
                         let sanitized_json = sanitize_and_spoof_response(
                             json, &chat_id, &frontend_requested_model, &provider_id,

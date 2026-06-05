@@ -10,7 +10,6 @@ use aws_lc_rs::{
     hkdf::{Salt, HKDF_SHA256},
     signature::{Ed25519KeyPair, KeyPair},
 };
-use base64ct::{Base64UrlUnpadded, Encoding};
 use chacha20poly1305::{
     aead::{Aead, KeyInit},
     XChaCha20Poly1305, XNonce,
@@ -42,7 +41,7 @@ use tokio_util::io::StreamReader;
 
 use crate::{AppState, CachedModelKey, ProviderConfig};
 use crate::routes::api::chat_completions::{ChatCompletionRequest, StreamOptions};
-use crate::providers::utiles::{
+use crate::utils::{
     mark_provider_healthy, mark_provider_unhealthy,
     sanitize_and_spoof_response, wrap_stream_with_timing_padding
 };
@@ -56,13 +55,12 @@ use crate::providers::utiles::{
 /// Handles generation of an ephemeral Ed25519 client key pair, and extracts
 /// an X25519 shared secret to be combined later with the upstream model's 
 /// public key via Diffie-Hellman, yielding a secure CHACHA20-POLY1305 tunnel.
-
 pub struct E2eeSession {
     pub client_pub_hex: String,
     pub x25519_secret: Zeroizing<[u8; 32]>,
 }
 
-use super::utiles::gen_random_bytes;
+use crate::utils::gen_random_bytes;
 
 /// Minimum hex-encoded payload length for a valid V2 encrypted chunk.
 /// 32 (ephemeral X25519 pub) + 24 (XChaCha nonce) = 56 raw bytes = 112 hex chars.
@@ -117,7 +115,7 @@ pub fn v2_encrypt(plaintext: &[u8], recipient_x25519_pub_bytes: &[u8; 32]) -> Re
     let mut shared_secret = Zeroizing::new(vec![0u8; 32]);
     agreement::agree_ephemeral(
         ephemeral_sk,
-        &peer_pk,
+        peer_pk,
         aws_lc_rs::error::Unspecified,
         |secret| {
             if secret.len() == 32 {
@@ -245,36 +243,17 @@ pub async fn fetch_near_ai_model_key(
         let quote_bytes = hex::decode(intel_quote_hex.trim_start_matches("0x"))
             .map_err(|_| "Invalid hex in TDX quote")?;
         
-        if quote_bytes.len() < 632 {
-            return Err("FATAL: TDX Quote is too short to contain REPORTDATA".into());
-        }
-
-        let pccs_client = dcap_qvl::collateral::CollateralClient::with_default_http("https://pccs.phala.network")
-            .map_err(|e| format!("Failed to create PCCS client: {:?}", e))?;
-
-        pccs_client.fetch_and_verify(&quote_bytes)
-            .await
-            .map_err(|e| format!("FATAL: TDX Hardware Verification Failed! {:?}", e))?;
-
-        let td_attributes = &quote_bytes[168..176];
-        let is_debug_mode = (td_attributes[0] & 1) != 0;
-        
-        if is_debug_mode {
-            return Err("FATAL: Intel TDX Enclave is running in DEBUG mode. Memory can be dumped!".into());
-        }
-
         let mut expected_hash_input = Vec::with_capacity(key_bytes.len() + cert_fp_bytes.len());
         expected_hash_input.extend_from_slice(&key_bytes);
         expected_hash_input.extend_from_slice(&cert_fp_bytes);
         
         let expected_hash = aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, &expected_hash_input);
+        
+        let mut expected_report_data = Vec::with_capacity(64);
+        expected_report_data.extend_from_slice(expected_hash.as_ref());
+        expected_report_data.extend_from_slice(&nonce_bytes);
 
-        let report_data = &quote_bytes[568..632]; 
-        let binding_ok = aws_lc_rs::constant_time::verify_slices_are_equal(&report_data[0..32], expected_hash.as_ref()).is_ok();
-        let nonce_ok = aws_lc_rs::constant_time::verify_slices_are_equal(&report_data[32..64], nonce_bytes.as_slice()).is_ok();
-        if !binding_ok || !nonce_ok {
-            return Err("FATAL: Intel TDX Key/TLS/Nonce binding verification failed! Possible MITM attack.".into());
-        }
+        crate::utils::verify_intel_tdx_quote(&quote_bytes, &expected_report_data).await?;
 
         if quote_bytes.len() >= 280 {
             let mr_config_id_bytes = &quote_bytes[232..280];
@@ -322,68 +301,7 @@ pub async fn fetch_near_ai_model_key(
             obj.insert("arch".to_string(), Value::String("HOPPER".to_string()));
         }
 
-        let nras_url = "https://nras.attestation.nvidia.com/v3/attest/gpu";
-        let nras_resp = standard_client.post(nras_url)
-            .header("Content-Type", "application/json")
-            .json(&nras_req_body)
-            .send()
-            .await
-            .map_err(|e| format!("NRAS Network error: {}", e))?;
-
-        if !nras_resp.status().is_success() {
-            return Err(format!("FATAL: NVIDIA Verification Failed! Status: {} - Body: {}", 
-                nras_resp.status(), nras_resp.text().await.unwrap_or_default()));
-        }
-
-        let nras_json: Value = nras_resp.json().await.map_err(|_| "Failed to parse NRAS V3 response".to_string())?;
-
-        let top_jwt = nras_json.get(0)
-            .and_then(|v| v.as_array())
-            .and_then(|a| a.get(1))
-            .and_then(|v| v.as_str())
-            .ok_or("Missing top-level JWT in NRAS response".to_string())?;
-
-        let top_parts: Vec<&str> = top_jwt.split('.').collect();
-        if top_parts.len() < 2 { return Err("Invalid Top JWT format".into()); }
-        
-        let top_decoded = Base64UrlUnpadded::decode_vec(top_parts[1])
-            .map_err(|e| format!("Base64 decode failed for top JWT: {}", e))?;
-        let top_claims: Value = serde_json::from_slice(&top_decoded)
-            .map_err(|_| "Failed to parse Top JWT claims".to_string())?;
-
-        if top_claims.get("x-nvidia-overall-att-result").and_then(|v| v.as_bool()) != Some(true) {
-            return Err("FATAL: NVIDIA attestation verdict was not PASS".into());
-        }
-        let gpu_jwt = nras_json.get(1)
-            .and_then(|v| v.as_object())
-            .and_then(|o| o.get("GPU-0"))
-            .and_then(|v| v.as_str())
-            .ok_or("Missing GPU-0 JWT in NRAS response".to_string())?;
-
-        let gpu_parts: Vec<&str> = gpu_jwt.split('.').collect();
-        if gpu_parts.len() < 2 { return Err("Invalid GPU JWT format".into()); }
-        
-        let gpu_decoded = Base64UrlUnpadded::decode_vec(gpu_parts[1])
-            .map_err(|e| format!("Base64 decode failed for GPU JWT: {}", e))?;
-        let gpu_claims: Value = serde_json::from_slice(&gpu_decoded)
-            .map_err(|_| "Failed to parse GPU JWT claims".to_string())?;
-
-        let dbgstat = gpu_claims.get("dbgstat").and_then(|v| v.as_str()).unwrap_or("");
-        if dbgstat != "disabled" {
-            return Err("FATAL: NVIDIA GPU debug mode is enabled. Memory can be dumped!".into());
-        }
-
-        if gpu_claims.get("secboot").and_then(|v| v.as_bool()) != Some(true) {
-            return Err("FATAL: NVIDIA GPU Secure Boot is disabled.".into());
-        }
-
-        let eat_nonce_str = gpu_claims.get("eat_nonce").and_then(|v| v.as_str()).unwrap_or("");
-        let mut eat_nonce_bytes = [0u8; 32];
-        let decode_ok = hex::decode_to_slice(eat_nonce_str, &mut eat_nonce_bytes).is_ok();
-        let nonce_match = aws_lc_rs::constant_time::verify_slices_are_equal(&eat_nonce_bytes, &nonce_bytes).is_ok();
-        if !decode_ok || !nonce_match {
-            return Err(format!("FATAL: NVIDIA GPU payload nonce ({}) does not match request nonce", eat_nonce_str));
-        }
+        crate::utils::verify_nvidia_gpu_attestation(standard_client, nras_req_body, &nonce_bytes).await?;
 
         verified_count += 1;
     }
@@ -439,11 +357,10 @@ impl ServerCertVerifier for NearAiTlsVerifier {
         if let Some(expected_spki) = map.get(&domain) {
             let mut matched = false;
             for pin_hex in expected_spki {
-                if let Ok(pin_bytes) = hex::decode(pin_hex) {
-                    if aws_lc_rs::constant_time::verify_slices_are_equal(spki_hash.as_ref(), &pin_bytes).is_ok() {
+                if let Ok(pin_bytes) = hex::decode(pin_hex)
+                    && aws_lc_rs::constant_time::verify_slices_are_equal(spki_hash.as_ref(), &pin_bytes).is_ok() {
                         matched = true;
                     }
-                }
             }
             if matched {
                 Ok(ServerCertVerified::assertion())
@@ -522,7 +439,7 @@ pub async fn parse_models(client: &reqwest::Client, data_array: &[Value]) -> Has
         let out_mods = model_val.get("output_modalities").or_else(|| model_val.get("architecture").and_then(|a| a.get("outputModalities"))).and_then(|v| v.as_array());
         let in_mods = model_val.get("input_modalities").or_else(|| model_val.get("architecture").and_then(|a| a.get("inputModalities"))).and_then(|v| v.as_array());
         
-        let is_valid = out_mods.map_or(false, |m| m.iter().all(|x| x.as_str() == Some("text")) && !m.is_empty()) && in_mods.map_or(false, |m| m.iter().all(|x| x.as_str() == Some("text")) && !m.is_empty());
+        let is_valid = out_mods.is_some_and(|m| m.iter().all(|x| x.as_str() == Some("text")) && !m.is_empty()) && in_mods.is_some_and(|m| m.iter().all(|x| x.as_str() == Some("text")) && !m.is_empty());
 
         if !is_valid {
             continue;
@@ -544,9 +461,9 @@ pub async fn parse_models(client: &reqwest::Client, data_array: &[Value]) -> Has
                 continue;
             }
 
-            let frontend_name = crate::providers::utiles::standardize_model_name(id);
+            let frontend_name = crate::utils::standardize_model_name(id);
 
-            let (p_in, p_out) = crate::providers::utiles::parse_model_price(model_val).unwrap_or((0.0, 0.0));
+            let (p_in, p_out) = crate::utils::parse_model_price(model_val).unwrap_or((0.0, 0.0));
             
             let mut ctx_len = 128000;
             let mut max_comp = 4096;
@@ -597,6 +514,7 @@ fn get_hardcoded_endpoints() -> Value {
 ///
 /// Applies response spoofing, billing recalculations based on markup limits, 
 /// tracks token usage, un-pads timing countermeasures, and handles connection healing.
+#[allow(clippy::too_many_arguments)]
 async fn process_near_ai_response(
     resp: reqwest::Response,
     provider: Arc<ProviderConfig>,
@@ -612,7 +530,7 @@ async fn process_near_ai_response(
     skip_decryption: bool,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
     if is_streaming {
-        let stream_err_mapper = resp.bytes_stream().map(|res| res.map_err(|e| IoError::new(std::io::ErrorKind::Other, e)));
+        let stream_err_mapper = resp.bytes_stream().map(|res| res.map_err(IoError::other));
         let mut stream_reader = BufReader::new(StreamReader::new(stream_err_mapper));
         let provider_clone = provider.clone();
         let client_secret_clone = client_secret.clone();
@@ -636,11 +554,11 @@ async fn process_near_ai_response(
                         let mut is_corrupt = false;
                         let mut error_msg = "Corrupt or invalid response from downstream provider.".to_string();
 
-                        if trimmed.starts_with("data: ") {
-                            let data_content = trimmed[6..].trim();
+                        if let Some(stripped) = trimmed.strip_prefix("data: ") {
+                            let data_content = stripped.trim();
                             if data_content == "[DONE]" {
                                 let chunk = if skip_decryption {
-                                    crate::providers::utiles::pad_raw_sse("data: [DONE]")
+                                    crate::utils::pad_raw_sse("data: [DONE]")
                                 } else {
                                     "data: [DONE]\n\n".to_string()
                                 };
@@ -657,14 +575,14 @@ async fn process_near_ai_response(
                                         }
                                     } else {
                                         let is_usage_chunk = json.get("usage").is_some() && 
-                                            json.get("choices").and_then(|c| c.as_array()).map_or(true, |a| a.is_empty());
+                                            json.get("choices").and_then(|c| c.as_array()).is_none_or(|a| a.is_empty());
 
                                         // --- Inline Decryption for Stream Chunks ---
                                         if let Some(choices) = json.get_mut("choices").and_then(|c| c.as_array_mut()) {
                                             for choice in choices.iter_mut() {
                                                 if let Some(delta) = choice.get_mut("delta").and_then(|d| d.as_object_mut()) {
-                                                    if let Some(enc_content) = delta.get("content").and_then(|v| v.as_str()) {
-                                                        if enc_content.len() >= MIN_V2_ENCRYPTED_HEX_LEN && !skip_decryption {
+                                                    if let Some(enc_content) = delta.get("content").and_then(|v| v.as_str())
+                                                        && enc_content.len() >= MIN_V2_ENCRYPTED_HEX_LEN && !skip_decryption {
                                                             match v2_decrypt(enc_content, &client_secret_clone) {
                                                                 Ok(plain) => {
                                                                     delta.insert("content".to_string(), Value::String(plain));
@@ -675,9 +593,8 @@ async fn process_near_ai_response(
                                                                 }
                                                             }
                                                         }
-                                                    }
-                                                    if let Some(enc_reasoning) = delta.get("reasoning_content").and_then(|v| v.as_str()) {
-                                                        if enc_reasoning.len() >= MIN_V2_ENCRYPTED_HEX_LEN && !skip_decryption {
+                                                    if let Some(enc_reasoning) = delta.get("reasoning_content").and_then(|v| v.as_str())
+                                                        && enc_reasoning.len() >= MIN_V2_ENCRYPTED_HEX_LEN && !skip_decryption {
                                                             match v2_decrypt(enc_reasoning, &client_secret_clone) {
                                                                 Ok(plain) => {
                                                                     delta.insert("reasoning_content".to_string(), Value::String(plain));
@@ -688,7 +605,6 @@ async fn process_near_ai_response(
                                                                 }
                                                             }
                                                         }
-                                                    }
                                                 }
                                             }
                                         }
@@ -702,7 +618,7 @@ async fn process_near_ai_response(
 
                                             if !is_usage_chunk || client_wants_usage {
                                                 let modified_chunk = if skip_decryption {
-                                                    crate::providers::utiles::pad_json_sse(sanitized_json)
+                                                    crate::utils::pad_json_sse(sanitized_json)
                                                 } else {
                                                     format!("data: {}\n\n", serde_json::to_string(&sanitized_json).unwrap())
                                                 };
@@ -718,14 +634,13 @@ async fn process_near_ai_response(
                             }
                         } else {
                             if trimmed.starts_with('{') {
-                                if let Ok(json) = serde_json::from_str::<Value>(trimmed) {
-                                    if json.get("error").is_some() {
+                                if let Ok(json) = serde_json::from_str::<Value>(trimmed)
+                                    && json.get("error").is_some() {
                                         is_corrupt = true;
                                         if let Some(msg) = json.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()) {
                                             error_msg = msg.to_string();
                                         }
                                     }
-                                }
                             } else {
                                 is_corrupt = true;
                                 error_msg = format!("Invalid stream protocol line: {}", trimmed);
@@ -743,7 +658,7 @@ async fn process_near_ai_response(
                                 }
                             });
                             let err_chunk = if skip_decryption {
-                                                crate::providers::utiles::pad_json_sse(err_json)
+                                                crate::utils::pad_json_sse(err_json)
                                             } else {
                                                 format!("data: {}\n\n", serde_json::to_string(&err_json).unwrap())
                                             };
@@ -762,7 +677,7 @@ async fn process_near_ai_response(
                             }
                         });
                         let err_chunk = if skip_decryption {
-                                            crate::providers::utiles::pad_json_sse(err_json)
+                                            crate::utils::pad_json_sse(err_json)
                                         } else {
                                             format!("data: {}\n\n", serde_json::to_string(&err_json).unwrap())
                                         };
@@ -797,20 +712,16 @@ async fn process_near_ai_response(
                 if let Some(choices) = json_resp.get_mut("choices").and_then(|c| c.as_array_mut()) {
                     for choice in choices.iter_mut() {
                         if let Some(message) = choice.get_mut("message").and_then(|m| m.as_object_mut()) {
-                            if let Some(enc_content) = message.get("content").and_then(|v| v.as_str()) {
-                                if enc_content.len() >= MIN_V2_ENCRYPTED_HEX_LEN && !skip_decryption {
-                                    if let Ok(plain) = v2_decrypt(enc_content, &client_secret) {
+                            if let Some(enc_content) = message.get("content").and_then(|v| v.as_str())
+                                && enc_content.len() >= MIN_V2_ENCRYPTED_HEX_LEN && !skip_decryption
+                                    && let Ok(plain) = v2_decrypt(enc_content, &client_secret) {
                                         message.insert("content".to_string(), Value::String(plain));
                                     }
-                                }
-                            }
-                            if let Some(enc_reasoning) = message.get("reasoning_content").and_then(|v| v.as_str()) {
-                                if enc_reasoning.len() >= MIN_V2_ENCRYPTED_HEX_LEN && !skip_decryption {
-                                    if let Ok(plain) = v2_decrypt(enc_reasoning, &client_secret) {
+                            if let Some(enc_reasoning) = message.get("reasoning_content").and_then(|v| v.as_str())
+                                && enc_reasoning.len() >= MIN_V2_ENCRYPTED_HEX_LEN && !skip_decryption
+                                    && let Ok(plain) = v2_decrypt(enc_reasoning, &client_secret) {
                                         message.insert("reasoning_content".to_string(), Value::String(plain));
                                     }
-                                }
-                            }
                         }
                     }
                 }
@@ -852,6 +763,7 @@ async fn process_near_ai_response(
 /// Orchestrates dynamic routing, memory locking for attestation keys, encryption
 /// of chat parameters, enforcing connection verification, and delegating the final
 /// output to `process_near_ai_response`.
+#[allow(clippy::too_many_arguments)]
 pub async fn call_near_ai(
     state: &AppState,
     provider: &Arc<ProviderConfig>,
@@ -881,11 +793,10 @@ pub async fn call_near_ai(
 
     {
         let state_read = provider.dynamic_state.read().await;
-        if let Some(key_info) = state_read.cached_model_keys.get(&frontend_requested_model) {
-            if current_ts < key_info.expires_at {
+        if let Some(key_info) = state_read.cached_model_keys.get(&frontend_requested_model)
+            && current_ts < key_info.expires_at {
                 cached_key_opt = Some(key_info.x25519_bytes);
             }
-        }
     }
 
     let model_x25519_bytes = match cached_key_opt {
@@ -900,14 +811,13 @@ pub async fn call_near_ai(
             // Verify live SPKI matches attestation fingerprint
             {
                 let observed = state.observed_spki.lock().unwrap();
-                if let Some(live_spkis) = observed.get(&domain) {
-                    if !live_spkis.contains(&tls_fingerprint) {
+                if let Some(live_spkis) = observed.get(&domain)
+                    && !live_spkis.contains(&tls_fingerprint) {
                         return Err(format!(
                             "TLS cert mismatch: live SPKIs ({:?}) do not contain attested fingerprint ({}).",
                             live_spkis, tls_fingerprint
                         ));
                     }
-                }
             }
 
             {
@@ -943,7 +853,7 @@ pub async fn call_near_ai(
         upstream_session.client_pub_hex
     };
     
-    let skip_decryption = client_pub_hex.len() > 0 && upstream_session_secret.iter().all(|&b| b == 0);
+    let skip_decryption = !client_pub_hex.is_empty() && upstream_session_secret.iter().all(|&b| b == 0);
 
     let req_body = serde_json::to_vec(&proxy_req).map_err(|e| e.to_string())?;
 
@@ -964,7 +874,7 @@ pub async fn call_near_ai(
     if !upstream_req.status().is_success() {
         let status = upstream_req.status();
         let retry_after = upstream_req.headers().get("retry-after").and_then(|h| h.to_str().ok()).map(|s| s.to_string());
-        return Err(crate::providers::utiles::format_upstream_error(
+        return Err(crate::utils::format_upstream_error(
             status,
             retry_after.as_deref(),
             upstream_req.text().await.unwrap_or_default(),

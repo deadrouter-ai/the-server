@@ -24,14 +24,13 @@ fn extract_sort_chunks(s: &str) -> Vec<SortChunk> {
                 } else if nc == '.' && !has_dot {
                     let mut clone_iter = chars.clone();
                     clone_iter.next();
-                    if let Some(&nnc) = clone_iter.peek() {
-                        if nnc.is_ascii_digit() {
+                    if let Some(&nnc) = clone_iter.peek()
+                        && nnc.is_ascii_digit() {
                             num_str.push(nc);
                             has_dot = true;
                             chars.next();
                             continue;
                         }
-                    }
                     break;
                 } else {
                     break;
@@ -86,7 +85,6 @@ fn compare_model_names(a: &str, b: &str) -> Ordering {
 
 #[derive(Clone)]
 pub struct RenderModelItem {
-    pub id: String,
     pub name: String,
     pub description: String,
     pub logo_letter: String,
@@ -185,8 +183,7 @@ pub fn get_model_details(model_id: &str) -> (String, String, Option<String>) {
     } else {
         // Fallback: replace "-" and "_" with space, capitalize words
         let fallback_name = model_id
-            .replace('-', " ")
-            .replace('_', " ")
+            .replace(['-', '_'], " ")
             .split_whitespace()
             .map(|word| {
                 let mut chars = word.chars();
@@ -355,7 +352,6 @@ pub async fn handle_models_page(
             let logo_letter = name.chars().find(|c| c.is_alphanumeric()).unwrap_or('A').to_string().to_uppercase();
 
             model_items.push(RenderModelItem {
-                id: model_name.clone(),
                 name,
                 description,
                 logo_letter,

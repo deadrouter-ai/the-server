@@ -17,6 +17,7 @@ use std::sync::Arc;
 use std::collections::HashMap;
 
 mod providers;
+pub mod utils;
 mod dns;
 mod quic_h3;
 mod connections;

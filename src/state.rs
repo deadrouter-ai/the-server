@@ -14,6 +14,12 @@ pub struct OnionData {
     pub onion_https_cert: String,
 }
 
+impl Default for OnionData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OnionData {
     pub fn new() -> Self {
         Self {
@@ -136,6 +142,7 @@ pub struct AppState {
 }
 
 impl AppState {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         http_client: reqwest::Client,
         near_ai_client: reqwest::Client,

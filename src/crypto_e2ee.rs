@@ -29,6 +29,12 @@ pub struct TicketSecrets {
     pub previous: [u8; 32],
 }
 
+impl Default for TicketSecrets {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TicketSecrets {
     /// Generates a fresh pair of cryptographically random master secrets.
     pub fn new() -> Self {

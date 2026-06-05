@@ -201,12 +201,11 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
                                 while let Some(frame_res) = body_stream.frame().await {
                                     match frame_res {
                                         Ok(frame) => {
-                                            if let Some(chunk) = frame.data_ref() {
-                                                if let Err(e) = stream.send_data(chunk.clone()).await {
+                                            if let Some(chunk) = frame.data_ref()
+                                                && let Err(e) = stream.send_data(chunk.clone()).await {
                                                     eprintln!("[h3]   send_data error: {}", e);
                                                     return;
                                                 }
-                                            }
                                         }
                                         Err(e) => {
                                             eprintln!("[h3]   stream frame error: {:?}", e);
@@ -258,22 +257,18 @@ fn spawn_http(listener: TcpListener, state: Arc<AppState>) {
                     if let Err(e) = hyper::server::conn::http1::Builder::new()
                         .serve_connection(io, svc)
                         .await
-                    {
-                        if !e.is_incomplete_message() {
+                        && !e.is_incomplete_message() {
                             eprintln!("[http] dev connection error: {}", e);
                         }
-                    }
                 } else {
                     // Redirect to HTTPS in production
                     let svc = service_fn(redirect_to_https);
                     if let Err(e) = hyper::server::conn::http1::Builder::new()
                         .serve_connection(io, svc)
                         .await
-                    {
-                        if !e.is_incomplete_message() {
+                        && !e.is_incomplete_message() {
                             eprintln!("[http] redirect connection error: {}", e);
                         }
-                    }
                 }
             });
         }

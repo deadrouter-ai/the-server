@@ -9,7 +9,7 @@ use zeroize::Zeroizing;
 use base64ct::Encoding;
 
 use crate::AppState;
-use crate::providers::utiles::generate_chat_id;
+use crate::utils::generate_chat_id;
 use crate::providers::nearai::call_near_ai;
 
 // ── Strict Schemas ────────────────────────────────────────────────────────────
@@ -129,13 +129,13 @@ pub async fn handle_secure_openai_proxy(
     }
 
     let mut e2ee_session: Option<crate::crypto_e2ee::E2eeSession> = None;
-    if let Some(kx_algo) = req.headers.get("x-kx-algo") {
-        if kx_algo == "X25519" {
-            if let (Some(client_pub_b64), Some(server_ticket)) = (req.headers.get("x-client-pub-key"), req.headers.get("x-server-ticket")) {
+    if let Some(kx_algo) = req.headers.get("x-kx-algo")
+        && kx_algo == "X25519"
+            && let (Some(client_pub_b64), Some(server_ticket)) = (req.headers.get("x-client-pub-key"), req.headers.get("x-server-ticket")) {
                 let ticket_secrets = state.ticket_secrets.read().await;
                 if let Ok(server_static) = crate::crypto_e2ee::decrypt_ticket(&ticket_secrets, server_ticket) {
-                    if let Ok(client_pub_bytes) = base64ct::Base64::decode_vec(client_pub_b64) {
-                        if client_pub_bytes.len() == 32 {
+                    if let Ok(client_pub_bytes) = base64ct::Base64::decode_vec(client_pub_b64)
+                        && client_pub_bytes.len() == 32 {
                             let mut pub_arr = [0u8; 32];
                             pub_arr.copy_from_slice(&client_pub_bytes);
                             
@@ -161,13 +161,10 @@ pub async fn handle_secure_openai_proxy(
                                 return json_error(StatusCode::BAD_REQUEST, "E2EE Decryption of messages failed.");
                             }
                         }
-                    }
                 } else {
                     return json_error(StatusCode::UNAUTHORIZED, "E2EE Ticket expired or invalid.");
                 }
             }
-        }
-    }
     
     if e2ee_enabled && e2ee_session.is_none() {
         return json_error(StatusCode::BAD_REQUEST, "E2EE is strictly enforced but decryption or key exchange failed/was not provided.");
@@ -333,11 +330,10 @@ pub async fn handle_secure_openai_proxy(
                     let mut cooldown_seconds = None;
                     if let Some(idx) = e.find("Retry-After: ") {
                         let sub = &e[idx + 13..];
-                        if let Some(end_idx) = sub.find(']') {
-                            if let Ok(secs) = sub[..end_idx].trim().parse::<u64>() {
+                        if let Some(end_idx) = sub.find(']')
+                            && let Ok(secs) = sub[..end_idx].trim().parse::<u64>() {
                                 cooldown_seconds = Some(secs);
                             }
-                        }
                     }
                     
                     let cooldown = cooldown_seconds.unwrap_or_else(|| {

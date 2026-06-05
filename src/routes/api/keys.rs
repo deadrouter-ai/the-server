@@ -17,7 +17,6 @@ use crate::crypto_e2ee::generate_ticket;
 /// The client receives an X25519 public key and an AES-256-GCM encrypted private
 /// key that only this server can decrypt. This bootstraps the E2EE key exchange
 /// without requiring any pre-shared secrets.
-
 pub async fn handle_keys_ephemeral(
     state: &AppState,
 ) -> (StatusCode, Vec<(&'static str, String)>, BoxBody<Bytes, Infallible>) {
@@ -66,11 +65,10 @@ pub async fn handle_nearai_model_key(
             let dyn_state = provider.dynamic_state.read().await;
             // Try the frontend model name as-is first (lowercase)
             let lower_model = model_id.to_lowercase();
-            if let Some(info) = dyn_state.dynamic_models.get(&lower_model) {
-                if let Some(ref ep) = info.direct_endpoint {
+            if let Some(info) = dyn_state.dynamic_models.get(&lower_model)
+                && let Some(ref ep) = info.direct_endpoint {
                     resolved = Some(ep.clone());
                 }
-            }
         }
 
         resolved.unwrap_or_else(|| crate::providers::nearai::get_direct_endpoint(model_id))

@@ -24,7 +24,7 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroizing;
 
-use super::utiles::gen_random_bytes;
+use crate::utils::gen_random_bytes;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -38,7 +38,7 @@ use tokio_util::io::StreamReader;
 
 use crate::{AppState, ProviderConfig, DynamicModelInfo};
 use crate::routes::api::chat_completions::{ChatCompletionRequest, StreamOptions};
-use crate::providers::utiles::{sanitize_and_spoof_response, wrap_stream_with_timing_padding};
+use crate::utils::{sanitize_and_spoof_response, wrap_stream_with_timing_padding};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -176,7 +176,7 @@ pub fn build_e2ee_request(
     let compressed = gzip_compress(&json_bytes)?;
 
     // 6. Encrypt with ChaCha20-Poly1305
-    let encrypted = chacha_encrypt(&*sym_key, &compressed)?;
+    let encrypted = chacha_encrypt(&sym_key, &compressed)?;
 
     // 7. Build final blob: [ML-KEM CT] [encrypted (nonce + ciphertext + tag)]
     let mut blob = Vec::with_capacity(MLKEM_CT_SIZE + encrypted.len());
@@ -217,7 +217,7 @@ pub fn decrypt_response(
     let sym_key = derive_key(shared_secret.as_ref(), mlkem_ct, INFO_RESP)?;
 
     // Decrypt
-    let compressed = chacha_decrypt(&*sym_key, encrypted)?;
+    let compressed = chacha_decrypt(&sym_key, encrypted)?;
 
     // Decompress
     let json_bytes = gzip_decompress(&compressed)?;
@@ -422,10 +422,6 @@ pub async fn resolve_chute_id(
 // ── TEE Attestation Verification ──────────────────────────────────────────────
 
 use aws_lc_rs::digest;
-use base64ct::Base64UrlUnpadded;
-
-/// Minimum quote length to contain REPORTDATA at offset [568..632].
-const MIN_TDX_QUOTE_LEN: usize = 632;
 
 /// Verifies TEE attestation evidence for Chutes AI instances.
 ///
@@ -521,35 +517,8 @@ pub async fn verify_chutes_tee_evidence(
             }
         };
 
-        if quote_bytes.len() < MIN_TDX_QUOTE_LEN {
-            eprintln!("WARNING: TDX Quote too short for instance {}", expected_inst.instance_id);
-            continue;
-        }
-
-        // DCAP signature verification via PCCS
-        let pccs_client = match dcap_qvl::collateral::CollateralClient::with_default_http(
-            "https://pccs.phala.network"
-        ) {
-            Ok(c) => c,
-            Err(e) => return Err(format!("Failed to create PCCS client: {:?}", e)),
-        };
-
-        if let Err(e) = pccs_client.fetch_and_verify(&quote_bytes).await {
-            eprintln!("WARNING: TDX Hardware Verification Failed for instance {}! {:?}", expected_inst.instance_id, e);
-            continue;
-        }
-
-        // Check TDATTRIBUTES for Debug Mode (bit 0 of byte 168)
-        let td_attributes = &quote_bytes[168..176];
-        if (td_attributes[0] & 1) != 0 {
-            eprintln!("WARNING: Instance {} is running in TDX DEBUG mode.", expected_inst.instance_id);
-            continue;
-        }
-
-        // Verify ML-KEM public key binding in report_data
-        let report_data = &quote_bytes[568..632];
-        if aws_lc_rs::constant_time::verify_slices_are_equal(&report_data[0..32], expected_hash.as_ref()).is_err() {
-            eprintln!("WARNING: ML-KEM pubkey binding verification failed for instance {}", expected_inst.instance_id);
+        if let Err(e) = crate::utils::verify_intel_tdx_quote(&quote_bytes, expected_hash.as_ref()).await {
+            eprintln!("WARNING: Intel TDX Verification Failed for instance {}: {}", expected_inst.instance_id, e);
             continue;
         }
 
@@ -569,118 +538,8 @@ pub async fn verify_chutes_tee_evidence(
             "evidence_list": gpu_arr
         });
 
-        let nras_url = "https://nras.attestation.nvidia.com/v3/attest/gpu";
-        let nras_resp = match client.post(nras_url)
-            .header("Content-Type", "application/json")
-            .json(&nras_req_body)
-            .send()
-            .await {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("WARNING: NRAS network error for instance {}: {}", expected_inst.instance_id, e);
-                continue;
-            }
-        };
-
-        if !nras_resp.status().is_success() {
-            eprintln!("WARNING: NVIDIA GPU Verification HTTP Failed for instance {}", expected_inst.instance_id);
-            continue;
-        }
-
-        let nras_json: Value = match nras_resp.json().await {
-            Ok(j) => j,
-            Err(_) => {
-                eprintln!("WARNING: Failed to parse NRAS response for instance {}", expected_inst.instance_id);
-                continue;
-            }
-        };
-
-        // Verify top-level attestation result
-        let top_jwt = match nras_json.get(0).and_then(|v| v.as_array()).and_then(|a| a.get(1)).and_then(|v| v.as_str()) {
-            Some(j) => j,
-            None => {
-                eprintln!("WARNING: Missing top-level JWT in NRAS response for instance {}", expected_inst.instance_id);
-                continue;
-            }
-        };
-
-        let top_parts: Vec<&str> = top_jwt.split('.').collect();
-        if top_parts.len() < 2 { 
-            eprintln!("WARNING: Invalid Top JWT format for instance {}", expected_inst.instance_id);
-            continue; 
-        }
-
-        let top_decoded = match Base64UrlUnpadded::decode_vec(top_parts[1]) {
-            Ok(d) => d,
-            Err(_) => {
-                eprintln!("WARNING: Base64 decode failed for top JWT for instance {}", expected_inst.instance_id);
-                continue;
-            }
-        };
-        
-        let top_claims: Value = match serde_json::from_slice(&top_decoded) {
-            Ok(c) => c,
-            Err(_) => {
-                eprintln!("WARNING: Failed to parse Top JWT claims for instance {}", expected_inst.instance_id);
-                continue;
-            }
-        };
-
-        if top_claims.get("x-nvidia-overall-att-result").and_then(|v| v.as_bool()) != Some(true) {
-            eprintln!("WARNING: NVIDIA attestation verdict was NOT PASS for instance {}", expected_inst.instance_id);
-            continue;
-        }
-
-        // Verify per-GPU claims
-        let gpu_jwt = match nras_json.get(1).and_then(|v| v.as_object()).and_then(|o| o.get("GPU-0")).and_then(|v| v.as_str()) {
-            Some(j) => j,
-            None => {
-                eprintln!("WARNING: Missing GPU-0 JWT in NRAS response for instance {}", expected_inst.instance_id);
-                continue;
-            }
-        };
-
-        let gpu_parts: Vec<&str> = gpu_jwt.split('.').collect();
-        if gpu_parts.len() < 2 { 
-            eprintln!("WARNING: Invalid GPU JWT format for instance {}", expected_inst.instance_id);
-            continue; 
-        }
-
-        let gpu_decoded = match Base64UrlUnpadded::decode_vec(gpu_parts[1]) {
-            Ok(d) => d,
-            Err(_) => {
-                eprintln!("WARNING: Base64 decode failed for GPU JWT for instance {}", expected_inst.instance_id);
-                continue;
-            }
-        };
-        
-        let gpu_claims: Value = match serde_json::from_slice(&gpu_decoded) {
-            Ok(c) => c,
-            Err(_) => {
-                eprintln!("WARNING: Failed to parse GPU JWT claims for instance {}", expected_inst.instance_id);
-                continue;
-            }
-        };
-
-        // GPU debug must be disabled
-        let dbgstat = gpu_claims.get("dbgstat").and_then(|v| v.as_str()).unwrap_or("");
-        if dbgstat != "disabled" {
-            eprintln!("WARNING: NVIDIA GPU debug mode is enabled on instance {}", expected_inst.instance_id);
-            continue;
-        }
-
-        // GPU secure boot must be enabled
-        if gpu_claims.get("secboot").and_then(|v| v.as_bool()) != Some(true) {
-            eprintln!("WARNING: NVIDIA GPU Secure Boot is disabled on instance {}", expected_inst.instance_id);
-            continue;
-        }
-
-        // GPU nonce must match
-        let eat_nonce = gpu_claims.get("eat_nonce").and_then(|v| v.as_str()).unwrap_or("");
-        let mut eat_nonce_bytes = [0u8; 32];
-        if hex::decode_to_slice(eat_nonce, &mut eat_nonce_bytes).is_err() ||
-           aws_lc_rs::constant_time::verify_slices_are_equal(&eat_nonce_bytes, expected_hash.as_ref()).is_err() {
-            eprintln!("WARNING: NVIDIA GPU nonce mismatch on instance {}", expected_inst.instance_id);
+        if let Err(e) = crate::utils::verify_nvidia_gpu_attestation(client, nras_req_body, expected_hash.as_ref()).await {
+            eprintln!("WARNING: NVIDIA GPU Verification Failed for instance {}: {}", expected_inst.instance_id, e);
             continue;
         }
 
@@ -710,9 +569,9 @@ pub fn parse_models(data_array: &[Value]) -> HashMap<String, DynamicModelInfo> {
             None => continue,
         };
 
-        let frontend_name = crate::providers::utiles::standardize_model_name(&upstream_id);
+        let frontend_name = crate::utils::standardize_model_name(&upstream_id);
 
-        let (p_in, p_out) = crate::providers::utiles::parse_model_price(model_val).unwrap_or((0.0, 0.0));
+        let (p_in, p_out) = crate::utils::parse_model_price(model_val).unwrap_or((0.0, 0.0));
         
         let ctx_len = model_val.get("context_length").and_then(|v| v.as_u64()).unwrap_or(0);
         let max_comp = model_val.get("max_output_length").and_then(|v| v.as_u64()).unwrap_or(0);
@@ -797,7 +656,7 @@ pub async fn call_chutes_ai(
                         let mut unverified_instances = Vec::new();
                         for inst in &instances {
                             let is_verified = state_write.chutes_e2ee.verified_instances.get(&inst.instance_id)
-                                .map_or(false, |&exp| current_ts < exp);
+                                .is_some_and(|&exp| current_ts < exp);
                             if !is_verified {
                                 unverified_instances.push(inst.clone());
                             }
@@ -816,7 +675,7 @@ pub async fn call_chutes_ai(
 
                         instances.retain(|inst| {
                             state_write.chutes_e2ee.verified_instances.get(&inst.instance_id)
-                                .map_or(false, |&exp| current_ts < exp)
+                                .is_some_and(|&exp| current_ts < exp)
                         });
 
                         if instances.is_empty() {
@@ -845,7 +704,7 @@ pub async fn call_chutes_ai(
         let is_verified = {
             let state_read = provider.dynamic_state.read().await;
             state_read.chutes_e2ee.verified_instances.get(&instance.instance_id)
-                .map_or(false, |&exp| current_ts < exp)
+                .is_some_and(|&exp| current_ts < exp)
         };
         if !is_verified {
             last_error = format!("FATAL: Instance {} has no valid TEE attestation.", instance.instance_id);
@@ -880,7 +739,7 @@ pub async fn call_chutes_ai(
         if !upstream_resp.status().is_success() {
             let status = upstream_resp.status();
             let retry_after = upstream_resp.headers().get("retry-after").and_then(|h| h.to_str().ok()).map(|s| s.to_string());
-            last_error = crate::providers::utiles::format_upstream_error(
+            last_error = crate::utils::format_upstream_error(
                 status,
                 retry_after.as_deref(),
                 upstream_resp.text().await.unwrap_or_default(),
@@ -903,6 +762,7 @@ pub async fn call_chutes_ai(
     Err(format!("All instances failed. Last error: {}", last_error))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn process_chutes_response(
     resp: reqwest::Response,
     is_streaming: bool,
@@ -916,7 +776,7 @@ async fn process_chutes_response(
     e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
 ) -> Result<BoxBody<Bytes, std::convert::Infallible>, String> {
     if is_streaming {
-        let stream_err_mapper = resp.bytes_stream().map(|res| res.map_err(|e| IoError::new(std::io::ErrorKind::Other, e)));
+        let stream_err_mapper = resp.bytes_stream().map(|res| res.map_err(IoError::other));
         let mut stream_reader = BufReader::new(StreamReader::new(stream_err_mapper));
 
         let stream = async_stream::stream! {
@@ -962,18 +822,18 @@ async fn process_chutes_response(
                                         break;
                                     }
                                 };
-                                match decrypt_stream_chunk(enc_chunk, &**sk) {
+                                match decrypt_stream_chunk(enc_chunk, sk) {
                                     Ok(decrypted_sse) => {
                                         let sse_content = decrypted_sse.trim();
-                                        let json_str = if sse_content.starts_with("data: ") {
-                                            &sse_content[6..]
+                                        let json_str = if let Some(stripped) = sse_content.strip_prefix("data: ") {
+                                            stripped
                                         } else {
                                             sse_content
                                         };
 
                                         if let Ok(json) = serde_json::from_str::<Value>(json_str) {
                                             let is_usage_chunk = json.get("usage").is_some() &&
-                                                json.get("choices").and_then(|c| c.as_array()).map_or(true, |a| a.is_empty());
+                                                json.get("choices").and_then(|c| c.as_array()).is_none_or(|a| a.is_empty());
 
                                             let sanitized = sanitize_and_spoof_response(
                                                 json, &chat_id, &requested_model, &provider_id,

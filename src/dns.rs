@@ -104,15 +104,14 @@ fn verify_cert(cert: &[u8], provider_pk: &[u8; 32]) -> Option<DnscryptCert> {
         .duration_since(std::time::SystemTime::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    if now > 1700000000 {
-        if now < ts_start as u64 || now > ts_end as u64 {
+    if now > 1700000000
+        && (now < ts_start as u64 || now > ts_end as u64) {
             println!(
                 "[DNS] Certificate expired or not yet valid (now: {}, start: {}, end: {})",
                 now, ts_start, ts_end
             );
             return None;
         }
-    }
 
     Some(DnscryptCert {
         resolver_pk,
@@ -182,7 +181,7 @@ fn pad_query(query: &[u8], min_len: usize) -> Vec<u8> {
     if target_len < min_len {
         target_len = min_len;
     }
-    if target_len % 64 != 0 {
+    if !target_len.is_multiple_of(64) {
         target_len = ((target_len / 64) + 1) * 64;
     }
     padded.resize(target_len, 0x00);
@@ -286,7 +285,7 @@ async fn send_dns_query(
     } else {
         match send_dns_query_udp(resolver_ip, query).await {
             Ok(resp) => {
-                let is_dnscrypt = resp.len() >= 8 && &resp[0..8] == &[0x72, 0x36, 0x66, 0x6e, 0x76, 0x57, 0x6a, 0x38];
+                let is_dnscrypt = resp.len() >= 8 && resp[0..8] == [0x72, 0x36, 0x66, 0x6e, 0x76, 0x57, 0x6a, 0x38];
                 if !is_dnscrypt && resp.len() >= 3 && (resp[2] & 0x02 != 0) {
                     println!("[DNS] UDP response truncated. Retrying over TCP...");
                     send_dns_query_tcp(resolver_ip, query).await
@@ -435,7 +434,7 @@ async fn establish_dnscrypt_session() -> Result<DnscryptClientState, String> {
                     let mut raw_shared_secret = Zeroizing::new([0u8; 32]);
                     agreement::agree_ephemeral(
                         client_sk,
-                        &peer_pk,
+                        peer_pk,
                         aws_lc_rs::error::Unspecified,
                         |secret| {
                             if secret.len() == 32 {
@@ -448,7 +447,7 @@ async fn establish_dnscrypt_session() -> Result<DnscryptClientState, String> {
                     )
                     .map_err(|e| format!("X25519 agreement failed: {:?}", e))?;
 
-                    let shared_key = Zeroizing::new(run_hchacha20(&*raw_shared_secret, &[0u8; 16]));
+                    let shared_key = Zeroizing::new(run_hchacha20(&raw_shared_secret, &[0u8; 16]));
 
                     return Ok(DnscryptClientState {
                         resolver_ip: resolver.ip,
@@ -524,7 +523,7 @@ impl Resolve for CustomDnscryptResolver {
                 .await
                 .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
                     println!("[DNS] Failed to get/establish DNSCrypt session: {:?}", e);
-                    Box::new(std::io::Error::new(std::io::ErrorKind::Other, e))
+                    Box::new(std::io::Error::other(e))
                 })?;
 
             let ip = resolve_domain_via_dnscrypt_session(&session, &domain)
@@ -628,7 +627,7 @@ async fn resolve_domain_via_dnscrypt_session(
     query_nonce[0..12].copy_from_slice(&client_nonce);
 
     let encrypted_query =
-        xchacha20_djb_poly1305_encrypt(&*session.shared_key, &query_nonce, &padded_query);
+        xchacha20_djb_poly1305_encrypt(&session.shared_key, &query_nonce, &padded_query);
 
     let mut request_packet = Vec::with_capacity(8 + 32 + 12 + encrypted_query.len());
     request_packet.extend_from_slice(&session.client_magic);
@@ -656,7 +655,7 @@ async fn resolve_domain_via_dnscrypt_session(
 
     let encrypted_response = &response_packet[32..];
     let decrypted = xchacha20_djb_poly1305_decrypt(
-        &*session.shared_key,
+        &session.shared_key,
         &resp_nonce,
         encrypted_response,
     )?;
