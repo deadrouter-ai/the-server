@@ -9,7 +9,7 @@ use futures::StreamExt;
 
 use crate::{AppState, ProviderConfig};
 use crate::routes::api::chat_completions::ChatCompletionRequest;
-use crate::providers::utiles::sanitize_and_spoof_response;
+use crate::providers::utiles::{sanitize_and_spoof_response, wrap_stream_with_timing_padding};
 use crate::DynamicModelInfo;
 
 pub fn parse_models(data_array: &[Value]) -> HashMap<String, DynamicModelInfo> {
@@ -166,7 +166,7 @@ pub async fn call_redpill_ai(
                 }
             }
         };
-        Ok(BodyExt::boxed(StreamBody::new(mapped_stream)))
+        Ok(BodyExt::boxed(StreamBody::new(wrap_stream_with_timing_padding(Box::pin(mapped_stream), e2ee_session))))
     } else {
         let body_bytes = resp.bytes().await.map_err(|e| format!("Failed to read body: {}", e))?;
         if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&body_bytes) {

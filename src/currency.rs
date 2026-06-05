@@ -1,5 +1,11 @@
+//! Currency types and conversion utilities.
+//!
+//! Provides a simple USD-based currency conversion system with hardcoded exchange
+//! rates. Used by the models page to display pricing in the user's preferred currency.
+
 use serde::{Deserialize, Serialize};
 
+/// Supported display currencies for model pricing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Currency {
@@ -11,6 +17,7 @@ pub enum Currency {
 }
 
 impl Currency {
+    /// Parses a currency code string (case-insensitive).
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_uppercase().as_str() {
             "USD" => Some(Currency::Usd),
@@ -21,6 +28,7 @@ impl Currency {
         }
     }
 
+    /// Returns the uppercase ISO 4217 code.
     pub fn as_str(&self) -> &'static str {
         match self {
             Currency::Usd => "USD",

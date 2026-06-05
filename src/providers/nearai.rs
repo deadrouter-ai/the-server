@@ -62,11 +62,11 @@ pub struct E2eeSession {
     pub x25519_secret: Zeroizing<[u8; 32]>,
 }
 
-pub fn gen_random_bytes<const N: usize>() -> [u8; N] {
-    let mut bytes = [0u8; N];
-    aws_lc_rs::rand::fill(&mut bytes).expect("Entropy source failed");
-    bytes
-}
+use super::utiles::gen_random_bytes;
+
+/// Minimum hex-encoded payload length for a valid V2 encrypted chunk.
+/// 32 (ephemeral X25519 pub) + 24 (XChaCha nonce) = 56 raw bytes = 112 hex chars.
+const MIN_V2_ENCRYPTED_HEX_LEN: usize = 112;
 
 impl E2eeSession {
     /// Generates the ephemeral Ed25519 client key and derives the X25519 secret.
@@ -672,7 +672,7 @@ async fn process_near_ai_response(
                                             for choice in choices.iter_mut() {
                                                 if let Some(delta) = choice.get_mut("delta").and_then(|d| d.as_object_mut()) {
                                                     if let Some(enc_content) = delta.get("content").and_then(|v| v.as_str()) {
-                                                        if enc_content.len() >= 112 && !skip_decryption {
+                                                        if enc_content.len() >= MIN_V2_ENCRYPTED_HEX_LEN && !skip_decryption {
                                                             match v2_decrypt(enc_content, &client_secret_clone) {
                                                                 Ok(plain) => {
                                                                     delta.insert("content".to_string(), Value::String(plain));
@@ -685,7 +685,7 @@ async fn process_near_ai_response(
                                                         }
                                                     }
                                                     if let Some(enc_reasoning) = delta.get("reasoning_content").and_then(|v| v.as_str()) {
-                                                        if enc_reasoning.len() >= 112 && !skip_decryption {
+                                                        if enc_reasoning.len() >= MIN_V2_ENCRYPTED_HEX_LEN && !skip_decryption {
                                                             match v2_decrypt(enc_reasoning, &client_secret_clone) {
                                                                 Ok(plain) => {
                                                                     delta.insert("reasoning_content".to_string(), Value::String(plain));
@@ -794,14 +794,14 @@ async fn process_near_ai_response(
                     for choice in choices.iter_mut() {
                         if let Some(message) = choice.get_mut("message").and_then(|m| m.as_object_mut()) {
                             if let Some(enc_content) = message.get("content").and_then(|v| v.as_str()) {
-                                if enc_content.len() >= 112 && !skip_decryption {
+                                if enc_content.len() >= MIN_V2_ENCRYPTED_HEX_LEN && !skip_decryption {
                                     if let Ok(plain) = v2_decrypt(enc_content, &client_secret) {
                                         message.insert("content".to_string(), Value::String(plain));
                                     }
                                 }
                             }
                             if let Some(enc_reasoning) = message.get("reasoning_content").and_then(|v| v.as_str()) {
-                                if enc_reasoning.len() >= 112 && !skip_decryption {
+                                if enc_reasoning.len() >= MIN_V2_ENCRYPTED_HEX_LEN && !skip_decryption {
                                     if let Ok(plain) = v2_decrypt(enc_reasoning, &client_secret) {
                                         message.insert("reasoning_content".to_string(), Value::String(plain));
                                     }

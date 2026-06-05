@@ -51,29 +51,6 @@ pub async fn router(
             )
         }
 
-        // ---- Info endpoint ----
-        (Method::GET, "/info") => {
-            let onion = state
-                .onion_data
-                .read()
-                .unwrap();
-            let body = format!(
-                "Onion      : {}\n\
-                 DB Status  : {}\n\
-                 Uptime     : {:?}\n\
-                 Protocol   : {}\n",
-                onion.onion_domain,
-                state.db_placeholder,
-                state.started_at.elapsed(),
-                req.protocol,
-            );
-            (
-                StatusCode::OK,
-                vec![("Content-Type", "text/plain; charset=utf-8".into())],
-                full_body(body),
-            )
-        }
-
         // ---- Logos ----
         (Method::GET, path) if path.starts_with("/logos/") => {
             let filename = path.trim_start_matches("/logos/");

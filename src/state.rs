@@ -1,3 +1,10 @@
+//! Application state definitions and provider configuration types.
+//!
+//! Defines the shared `AppState` structure that is passed to every request handler,
+//! along with per-provider configuration (`ProviderConfig`), health tracking
+//! (`ProviderHealthState`), dynamic model discovery (`DynamicModelInfo`), and
+//! TEE attestation key caching (`CachedModelKey`).
+
 use std::sync::Arc;
 use std::collections::HashMap;
 
@@ -56,10 +63,17 @@ pub struct DynamicModelInfo {
     pub direct_endpoint: Option<String>,
 }
 
+/// Chutes AI E2EE session state.
+///
+/// Manages per-chute TEE attestation caches, nonce pools for replay protection,
+/// and `chute_id` resolution caches for the ML-KEM-768 key encapsulation protocol.
 #[derive(Debug, Default)]
 pub struct ChutesState {
+    /// Maps upstream model name → (chute_id, expiry_timestamp).
     pub chute_id_cache: std::collections::HashMap<String, (String, u64)>,
+    /// Maps instance_id → verification expiry timestamp (unix seconds).
     pub verified_instances: std::collections::HashMap<String, u64>,
+    /// Maps chute_id → cached nonce pool with instance info.
     pub nonce_pools: std::collections::HashMap<String, crate::providers::chutes::CachedChutesNonces>,
 }
 
@@ -93,19 +107,31 @@ pub struct ProviderConfig {
 }
 
 /// Global application state shared across all HTTP/QUIC/Tor request handlers.
+///
+/// Thread-safe via `Arc` wrapping. Contains HTTP clients, provider registry,
+/// the dynamic routing table, E2EE ticket secrets, and TLS certificate pinning state.
 pub struct AppState {
+    /// Tor onion service metadata (domain, cert PEM).
     pub onion_data: std::sync::RwLock<OnionData>,
     pub db_placeholder: String,
     pub started_at: std::time::Instant,
 
+    /// General-purpose HTTP client for provider API calls.
     pub http_client: reqwest::Client,
+    /// Dedicated HTTP client for Near AI with custom TLS certificate verifier.
     pub near_ai_client: reqwest::Client,
+    /// Domain → set of pinned SPKI SHA-256 hashes (from attestation).
     pub tls_pins: Arc<tokio::sync::RwLock<HashMap<String, std::collections::HashSet<String>>>>,
+    /// Domain → set of live SPKI hashes observed during TLS handshakes (TOFU).
     pub observed_spki: Arc<std::sync::Mutex<HashMap<String, std::collections::HashSet<String>>>>,
 
+    /// Provider ID → provider configuration.
     pub providers: HashMap<String, Arc<ProviderConfig>>,
+    /// Model frontend name → list of provider IDs that serve it.
     pub routing_table: tokio::sync::RwLock<HashMap<String, Vec<String>>>,
+    /// Rotating AES-256-GCM master secrets for E2EE ticket encryption.
     pub ticket_secrets: Arc<tokio::sync::RwLock<crate::crypto_e2ee::TicketSecrets>>,
+    /// Tinfoil TEE-verified inference client.
     pub tinfoil_client: tinfoil::Client,
 }
 

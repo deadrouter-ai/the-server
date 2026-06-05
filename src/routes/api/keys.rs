@@ -1,9 +1,22 @@
+//! E2EE key exchange API endpoints.
+//!
+//! Provides two endpoints:
+//!   - `GET /v1/keys/ephemeral`: Generate a fresh X25519 E2EE ticket (no auth required)
+//!   - `GET /v1/models/nearai/{model}/key`: Proxy an attestation report from a Near AI enclave
+
 use bytes::Bytes;
 use hyper::StatusCode;
 use http_body_util::{combinators::BoxBody, BodyExt, Full};
 use std::convert::Infallible;
 use crate::AppState;
 use crate::crypto_e2ee::generate_ticket;
+
+/// Generates and returns a fresh E2EE ephemeral ticket.
+///
+/// No authentication is required — tickets are lightweight and self-protecting.
+/// The client receives an X25519 public key and an AES-256-GCM encrypted private
+/// key that only this server can decrypt. This bootstraps the E2EE key exchange
+/// without requiring any pre-shared secrets.
 
 pub async fn handle_keys_ephemeral(
     state: &AppState,
@@ -19,6 +32,11 @@ pub async fn handle_keys_ephemeral(
     )
 }
 
+/// Proxies an attestation report request from a Near AI hardware enclave.
+///
+/// Resolves the model's direct endpoint from dynamic state, then forwards the
+/// attestation request through the custom Near AI TLS client (which enforces
+/// SPKI certificate pinning against attested fingerprints).
 pub async fn handle_nearai_model_key(
     state: &AppState,
     req: &crate::IncomingRequest,
@@ -60,7 +78,7 @@ pub async fn handle_nearai_model_key(
 
     let query = req.uri.query().unwrap_or("");
     let upstream_url = if query.is_empty() {
-        format!("{}/v1/attestation/report?signing_algo=ed25519&include_tls_fingerprint=true", direct_url)
+        format!("{}/v1/attestation/report?signing_algo=ed25519", direct_url)
     } else {
         format!("{}/v1/attestation/report?{}", direct_url, query)
     };

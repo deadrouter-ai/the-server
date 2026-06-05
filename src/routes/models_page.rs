@@ -222,33 +222,44 @@ fn format_price_1m(price: f64) -> String {
     s
 }
 
+/// Decodes URL percent-encoding and `+` → space substitution.
+///
+/// Properly handles multi-byte UTF-8 sequences (e.g., `%C3%A9` → `é`) by
+/// accumulating raw bytes before converting to a string.
 fn url_decode(s: &str) -> String {
-    let mut res = String::new();
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        if c == '%' {
+    let mut bytes = Vec::with_capacity(s.len());
+    let mut chars = s.as_bytes().iter();
+    while let Some(&b) = chars.next() {
+        if b == b'%' {
             let h1 = chars.next();
             let h2 = chars.next();
-            if let (Some(c1), Some(c2)) = (h1, h2) {
-                if let Ok(val) = u8::from_str_radix(&format!("{}{}", c1, c2), 16) {
-                    res.push(val as char);
+            if let (Some(&c1), Some(&c2)) = (h1, h2) {
+                let hex_str = [c1, c2];
+                if let Ok(hex_s) = std::str::from_utf8(&hex_str) {
+                    if let Ok(val) = u8::from_str_radix(hex_s, 16) {
+                        bytes.push(val);
+                    } else {
+                        bytes.push(b'%');
+                        bytes.push(c1);
+                        bytes.push(c2);
+                    }
                 } else {
-                    res.push('%');
-                    res.push(c1);
-                    res.push(c2);
+                    bytes.push(b'%');
+                    bytes.push(c1);
+                    bytes.push(c2);
                 }
             } else {
-                res.push('%');
-                if let Some(c1) = h1 { res.push(c1); }
-                if let Some(c2) = h2 { res.push(c2); }
+                bytes.push(b'%');
+                if let Some(&c1) = h1 { bytes.push(c1); }
+                if let Some(&c2) = h2 { bytes.push(c2); }
             }
-        } else if c == '+' {
-            res.push(' ');
+        } else if b == b'+' {
+            bytes.push(b' ');
         } else {
-            res.push(c);
+            bytes.push(b);
         }
     }
-    res
+    String::from_utf8_lossy(&bytes).into_owned()
 }
 
 pub async fn handle_models_page(
@@ -374,7 +385,7 @@ pub async fn handle_models_page(
         csp_nonce: nonce.to_string(), 
         onion_site,
         models: model_items,
-        search_query: if search_query.is_empty() { String::new() } else { search_query },
+        search_query,
         filter_zdr,
         filter_zds,
         filter_tee,

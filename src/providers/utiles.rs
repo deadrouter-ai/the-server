@@ -1,3 +1,11 @@
+//! Shared utility functions for all AI inference providers.
+//!
+//! Provides common functionality including:
+//!   - Response sanitization and spoofing (model/provider ID masking)
+//!   - E2EE stream re-encryption with timing-padded SSE delivery
+//!   - Provider health tracking (consecutive errors, rate-limit backoff)
+//!   - Pricing normalization across heterogeneous provider APIs
+
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::convert::Infallible;
 use bytes::Bytes;
@@ -7,11 +15,20 @@ use futures::{StreamExt, Stream};
 
 // ── Shared Helper Functions for All Providers ───────────────────────────────
 
+/// Generates a unique chat completion ID using 16 cryptographic random bytes.
 pub fn generate_chat_id() -> String {
-    let rand_bytes = crate::providers::nearai::gen_random_bytes::<16>();
+    let rand_bytes = gen_random_bytes::<16>();
     format!("chatcmpl-{}", hex::encode(rand_bytes))
 }
 
+/// Sanitizes an upstream provider response for client consumption.
+///
+/// Performs the following:
+/// - Strips unknown/dangerous fields (whitelist-only approach)
+/// - Replaces `id`, `model`, and `provider` with proxy-controlled values
+/// - Normalizes `reasoning` / `reasoning_content` field naming
+/// - Optionally re-encrypts `content` and `reasoning_content` via E2EE ratchet
+/// - Computes per-request cost from token counts and pricing
 pub fn sanitize_and_spoof_response(
     mut original: Value,
     chat_id: &str,
@@ -148,6 +165,9 @@ pub fn sanitize_and_spoof_response(
     Value::Object(new_root)
 }
 
+/// Marks a provider as temporarily unhealthy for the given duration.
+///
+/// Increments the consecutive error counter and sets a rate-limit backoff timestamp.
 pub async fn mark_provider_unhealthy(provider: &crate::ProviderConfig, duration_secs: u64) {
     let mut state_write = provider.dynamic_state.write().await;
     let current_ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
@@ -155,6 +175,7 @@ pub async fn mark_provider_unhealthy(provider: &crate::ProviderConfig, duration_
     state_write.health.rate_limited_until = Some(current_ts + duration_secs);
 }
 
+/// Clears a provider's error state, marking it as healthy.
 pub async fn mark_provider_healthy(provider: &crate::ProviderConfig) {
     let mut state_write = provider.dynamic_state.write().await;
     if state_write.health.consecutive_errors > 0 || state_write.health.rate_limited_until.is_some() {
@@ -163,6 +184,10 @@ pub async fn mark_provider_healthy(provider: &crate::ProviderConfig) {
     }
 }
 
+/// Pads a JSON SSE event to the nearest 256-byte boundary.
+///
+/// Adds a `pad` field with filler characters to prevent traffic analysis
+/// from inferring content length patterns in encrypted streams.
 pub fn pad_json_sse(mut json: Value) -> String {
     json["pad"] = Value::String("".to_string());
     let base_json = serde_json::to_string(&json).unwrap();
@@ -175,6 +200,8 @@ pub fn pad_json_sse(mut json: Value) -> String {
     format!("data: {}\n\n", final_json)
 }
 
+/// Pads a raw SSE line (e.g., `data: [DONE]`) to the nearest 256-byte boundary
+/// using an SSE comment line.
 pub fn pad_raw_sse(line: &str) -> String {
     let comment_base_len = line.len() + 5; // line + "\n: \n\n"
     let p = 256 - (comment_base_len % 256);
@@ -182,6 +209,11 @@ pub fn pad_raw_sse(line: &str) -> String {
     format!("{}\n: {}\n\n", line, pad_str)
 }
 
+/// Wraps an upstream SSE stream with 50ms interval timing padding.
+///
+/// Aggregates multiple upstream chunks per tick into a single padded event,
+/// preventing timing side-channels that could leak token generation patterns.
+/// Applies E2EE re-encryption via stream ratchet when an E2EE session is active.
 pub fn wrap_stream_with_timing_padding<S>(
     mut upstream_stream: S,
     e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
@@ -411,8 +443,8 @@ pub fn parse_model_price(model_val: &Value) -> Option<(f64, f64)> {
             get_f64_coerced(pricing, "prompt").or_else(|| get_f64_coerced(pricing, "price_input_1m")).or_else(|| get_f64_coerced(pricing, "input")),
             get_f64_coerced(pricing, "completion").or_else(|| get_f64_coerced(pricing, "price_output_1m")).or_else(|| get_f64_coerced(pricing, "output"))
         ) {
-            let input_1m = if p_in < 0.01 { p_in * 1_000_000.0 } else { p_in };
-            let output_1m = if p_out < 0.01 { p_out * 1_000_000.0 } else { p_out };
+            let input_1m = if p_in < 0.001 { p_in * 1_000_000.0 } else { p_in };
+            let output_1m = if p_out < 0.001 { p_out * 1_000_000.0 } else { p_out };
             return Some((input_1m, output_1m));
         }
     }
@@ -423,8 +455,8 @@ pub fn parse_model_price(model_val: &Value) -> Option<(f64, f64)> {
             get_f64_coerced(price, "prompt").or_else(|| get_f64_coerced(price, "input")),
             get_f64_coerced(price, "completion").or_else(|| get_f64_coerced(price, "output"))
         ) {
-            let input_1m = if p_in < 0.01 { p_in * 1_000_000.0 } else { p_in };
-            let output_1m = if p_out < 0.01 { p_out * 1_000_000.0 } else { p_out };
+            let input_1m = if p_in < 0.001 { p_in * 1_000_000.0 } else { p_in };
+            let output_1m = if p_out < 0.001 { p_out * 1_000_000.0 } else { p_out };
             return Some((input_1m, output_1m));
         }
     }

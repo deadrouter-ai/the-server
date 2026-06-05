@@ -53,7 +53,8 @@ pub async fn hyper_handler(
     )
     .header("Access-Control-Allow-Origin", "*")
     .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-    .header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-KX-Algo, X-Server-Ticket, X-Client-Pub-Key, X-E2EE-Enabled, X-CSRF-Token, X-NearAI-E2EE-Enabled, X-NearAI-Client-Pub-Key");
+    .header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-KX-Algo, X-Server-Ticket, X-Client-Pub-Key, X-E2EE-Enabled, X-CSRF-Token, X-NearAI-E2EE-Enabled, X-NearAI-Client-Pub-Key")
+    .header("Access-Control-Expose-Headers", "Content-Type");
     for (k, v) in &headers {
         builder = builder.header(*k, v.as_str());
     }
@@ -184,7 +185,8 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
                                         )
                                         .header("Access-Control-Allow-Origin", "*")
                                         .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-                                        .header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-KX-Algo, X-Server-Ticket, X-Client-Pub-Key, X-E2EE-Enabled, X-NearAI-E2EE-Enabled, X-NearAI-Client-Pub-Key");
+                                        .header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-KX-Algo, X-Server-Ticket, X-Client-Pub-Key, X-E2EE-Enabled, X-NearAI-E2EE-Enabled, X-NearAI-Client-Pub-Key")
+                                        .header("Access-Control-Expose-Headers", "Content-Type");
                                 for (k, v) in &headers {
                                     builder = builder.header(*k, v.as_str());
                                 }
@@ -280,7 +282,7 @@ fn spawn_http(listener: TcpListener, state: Arc<AppState>) {
 
 pub async fn start_all(state: Arc<AppState>, tls_port: u16, http_port: u16) {
     let certs = generate_self_signed(vec!["localhost".to_string()]);
-    println!("[tls]  Self-signed certificate generated (ECDSA P-256)");
+    println!("[tls]  Self-signed certificate generated (ECDSA P-384)");
 
     let provider = Arc::new(hardened_crypto_provider());
 
