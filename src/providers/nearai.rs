@@ -652,7 +652,12 @@ async fn process_near_ai_response(
                         if trimmed.starts_with("data: ") {
                             let data_content = trimmed[6..].trim();
                             if data_content == "[DONE]" {
-                                yield Ok::<_, Infallible>(Frame::data(Bytes::from("data: [DONE]\n\n")));
+                                let chunk = if skip_decryption {
+                                    crate::providers::utiles::pad_raw_sse("data: [DONE]")
+                                } else {
+                                    "data: [DONE]\n\n".to_string()
+                                };
+                                yield Ok::<_, Infallible>(Frame::data(Bytes::from(chunk)));
                                 break;
                             } 
                             
@@ -709,7 +714,11 @@ async fn process_near_ai_response(
                                             );
 
                                             if !is_usage_chunk || client_wants_usage {
-                                                let modified_chunk = format!("data: {}\n\n", serde_json::to_string(&sanitized_json).unwrap());
+                                                let modified_chunk = if skip_decryption {
+                                                    crate::providers::utiles::pad_json_sse(sanitized_json)
+                                                } else {
+                                                    format!("data: {}\n\n", serde_json::to_string(&sanitized_json).unwrap())
+                                                };
                                                 yield Ok::<_, Infallible>(Frame::data(Bytes::from(modified_chunk)));
                                             }
                                         }
@@ -746,7 +755,11 @@ async fn process_near_ai_response(
                                     "code": "provider_unavailable"
                                 }
                             });
-                            let err_chunk = format!("data: {}\n\n", serde_json::to_string(&err_json).unwrap());
+                            let err_chunk = if skip_decryption {
+                                                crate::providers::utiles::pad_json_sse(err_json)
+                                            } else {
+                                                format!("data: {}\n\n", serde_json::to_string(&err_json).unwrap())
+                                            };
                             yield Ok::<_, Infallible>(Frame::data(Bytes::from(err_chunk)));
                             break;
                         }
@@ -761,7 +774,11 @@ async fn process_near_ai_response(
                                 "code": "provider_unavailable"
                             }
                         });
-                        let err_chunk = format!("data: {}\n\n", serde_json::to_string(&err_json).unwrap());
+                        let err_chunk = if skip_decryption {
+                                            crate::providers::utiles::pad_json_sse(err_json)
+                                        } else {
+                                            format!("data: {}\n\n", serde_json::to_string(&err_json).unwrap())
+                                        };
                         yield Ok::<_, Infallible>(Frame::data(Bytes::from(err_chunk)));
                         break;
                     }

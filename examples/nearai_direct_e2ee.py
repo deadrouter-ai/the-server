@@ -1,5 +1,5 @@
 """
-Near AI Direct E2EE Example
+Near AI Direct E2EE Example (Setup 2)
 
 Demonstrates true end-to-end encryption between the client and
 the Near AI hardware enclave, bypassing the proxy's cryptographic layer.
@@ -13,6 +13,7 @@ import json
 import os
 import hashlib
 import urllib3
+import time
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives import hashes
@@ -25,7 +26,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 BASE_URL = "https://localhost:5443"
 BEARER = "test_token"
 MODEL = "gpt-oss-120b"
-
+STREAMING = True
 
 # ── XChaCha20Poly1305 wrappers (via libsodium) ──────────────────────────────
 
@@ -245,7 +246,7 @@ def send_direct_e2ee_request():
     payload = {
         "model": MODEL,
         "messages": [{"role": role, "content": encrypted_content}],
-        "stream": True,
+        "stream": STREAMING,
         "tee": True,
     }
 
@@ -255,7 +256,7 @@ def send_direct_e2ee_request():
         headers=headers,
         json=payload,
         verify=False,
-        stream=True,
+        stream=STREAMING,
     )
     print(f"    Status: {resp.status_code}")
 
@@ -263,48 +264,90 @@ def send_direct_e2ee_request():
         print(f"    Error: {resp.text}")
         return
 
-    print("\n--- STREAMING DECRYPTED RESPONSE ---\n")
-    reasoning_started = False
+    if not STREAMING:
+        print("\n--- DECRYPTING FULL CHAIN ---\n")
+        resp_json = resp.json()
+        for choice in resp_json.get("choices", []):
+            msg = choice.get("message", {})
 
-    for line in resp.iter_lines():
-        if not line:
-            continue
-        line_str = line.decode("utf-8")
-        if not line_str.startswith("data: "):
-            continue
-
-        data_str = line_str[6:]
-        if data_str.strip() == "[DONE]":
-            print("\n\n[DONE]")
-            break
-
-        try:
-            chunk = json.loads(data_str)
-        except json.JSONDecodeError:
-            continue
-
-        for choice in chunk.get("choices", []):
-            delta = choice.get("delta", {})
-
-            # Handle reasoning_content
-            enc_reasoning = delta.get("reasoning_content")
+            enc_reasoning = msg.get("reasoning_content")
             if enc_reasoning:
-                if not reasoning_started:
-                    print("<think>", end="", flush=True)
-                    reasoning_started = True
                 ok, text = try_decrypt(enc_reasoning, client_x25519_secret)
-                print(text, end="", flush=True)
+                if ok: print(f"[Decrypted Reasoning]: {text}")
 
-            # Handle content (reasoning is finished when content starts)
-            enc_content = delta.get("content")
+            enc_content = msg.get("content")
             if enc_content:
-                if reasoning_started:
-                    print("</think>\n", end="", flush=True)
-                    reasoning_started = False
                 ok, text = try_decrypt(enc_content, client_x25519_secret)
-                print(text, end="", flush=True)
+                if ok: print(f"[Decrypted Content]: {text}")
 
-    print()
+    else:
+        print("\n--- STREAMING DECRYPTED RESPONSE ---\n")
+        reasoning_started = False
+        
+        chunk_intervals = []
+        has_padding = False
+        last_time = time.time()
+
+        for line in resp.iter_lines():
+            if not line:
+                continue
+                
+            current_time = time.time()
+            chunk_intervals.append(current_time - last_time)
+            last_time = current_time
+            
+            line_str = line.decode("utf-8")
+            if not line_str.startswith("data: "):
+                continue
+
+            data_str = line_str[6:]
+            if data_str.strip() == "[DONE]":
+                print("\n\n[DONE]")
+                break
+
+            try:
+                chunk = json.loads(data_str)
+                if "pad" in chunk:
+                    has_padding = True
+            except json.JSONDecodeError:
+                continue
+
+            for choice in chunk.get("choices", []):
+                delta = choice.get("delta", {})
+
+                # Handle reasoning_content
+                enc_reasoning = delta.get("reasoning_content")
+                if enc_reasoning:
+                    if not reasoning_started:
+                        print("<think>", end="", flush=True)
+                        reasoning_started = True
+                    ok, text = try_decrypt(enc_reasoning, client_x25519_secret)
+                    if ok: print(text, end="", flush=True)
+
+                # Handle content (reasoning is finished when content starts)
+                enc_content = delta.get("content")
+                if enc_content:
+                    if reasoning_started:
+                        print("</think>\n", end="", flush=True)
+                        reasoning_started = False
+                    ok, text = try_decrypt(enc_content, client_x25519_secret)
+                    if ok: print(text, end="", flush=True)
+
+        # --- Stream Analysis ---
+        if chunk_intervals:
+            valid_intervals = chunk_intervals[1:] if len(chunk_intervals) > 1 else chunk_intervals
+            avg_interval = sum(valid_intervals) / len(valid_intervals) * 1000
+            
+            print("\n\n--- STREAM ANALYSIS ---")
+            print(f"Total Chunks:        {len(chunk_intervals)}")
+            print(f"Obfuscation Padding: {'ENABLED (pad field found)' if has_padding else 'DISABLED'}")
+            
+            # The proxy implements timing padding at exactly 50ms, but for Passthrough it should be disabled
+            is_timing_protected = 45 < avg_interval < 75
+            print(f"Average Interval:    {avg_interval:.2f} ms")
+            print(f"Timing Protection:   {'ACTIVE (Proxy is buffering/ratcheting at ~50ms ticks)' if is_timing_protected else 'INACTIVE (Streaming raw chunks)'}")
+            
+        print()
 
 
 if __name__ == "__main__":
