@@ -27,18 +27,7 @@ pub fn parse_models(data_array: &[Value]) -> HashMap<String, DynamicModelInfo> {
         };
 
         // Standardize frontend name
-        let mut frontend_name = match upstream_id.find('/') {
-            Some(idx) => &upstream_id[idx + 1..],
-            None => &upstream_id,
-        }.to_lowercase();
-
-        // Strip quantization/format suffixes
-        let suffixes_to_strip = ["-fp8", "-fp16", "-awq", "-gptq", "-int8", "-int4", "-gguf"];
-        for suffix in suffixes_to_strip {
-            if frontend_name.ends_with(suffix) {
-                frontend_name = frontend_name.strip_suffix(suffix).unwrap().to_string();
-            }
-        }
+        let frontend_name = crate::providers::utiles::standardize_model_name(&upstream_id);
 
         // Extract prices (we need to handle the unit)
         // Infomaniak has 'prices' array
@@ -101,6 +90,28 @@ pub async fn call_infomaniak(
         }
     };
 
+    // Infomaniak (specifically Llama-3 based models) strictly enforces that `system`
+    // can only be the very first message, and there can only be one.
+    let mut normalized_messages: Vec<crate::routes::api::chat_completions::Message> = Vec::new();
+    let mut seen_non_system = false;
+    for mut msg in std::mem::take(&mut proxy_req.messages) {
+        if msg.role == "system" {
+            if seen_non_system {
+                // If a system message appears after a user/assistant message, change it to user
+                msg.role = "user".to_string();
+            } else if let Some(first_msg) = normalized_messages.first_mut() {
+                // Merge consecutive system messages at the start
+                first_msg.content.push_str("\n\n");
+                first_msg.content.push_str(&msg.content);
+                continue;
+            }
+        } else {
+            seen_non_system = true;
+        }
+        normalized_messages.push(msg);
+    }
+    proxy_req.messages = normalized_messages;
+
     proxy_req.model = upstream_model_name;
     let payload = serde_json::to_vec(&proxy_req).map_err(|e| format!("Serialization error: {}", e))?;
 
@@ -113,13 +124,12 @@ pub async fn call_infomaniak(
 
     if !resp.status().is_success() {
         let status = resp.status();
-        let mut body_text = resp.text().await.unwrap_or_default();
-        if body_text.len() > 150 {
-            body_text.truncate(147);
-            body_text.push_str("...");
-        }
-        let cleaned_body = body_text.replace("\r", "").replace("\n", " ");
-        return Err(format!("Upstream error: {} - {}", status, cleaned_body));
+        let retry_after = resp.headers().get("retry-after").and_then(|h| h.to_str().ok()).map(|s| s.to_string());
+        return Err(crate::providers::utiles::format_upstream_error(
+            status,
+            retry_after.as_deref(),
+            resp.text().await.unwrap_or_default(),
+        ));
     }
 
     let provider_id = provider.id.clone();

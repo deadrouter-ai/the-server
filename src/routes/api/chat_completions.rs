@@ -313,18 +313,56 @@ pub async fn handle_secure_openai_proxy(
                 return (StatusCode::OK, headers, body);
             }
             Err(e) => {
+                println!("[ERROR] Provider '{}' failed: {}", provider.id, e);
+                
                 let mut dyn_state = provider.dynamic_state.write().await;
-                dyn_state.health.consecutive_errors += 1;
-                let errors = dyn_state.health.consecutive_errors;
-                let cooldown_seconds = std::cmp::min(30 + (errors * 5), 60) as u64;
-                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-                dyn_state.health.rate_limited_until = Some(now + cooldown_seconds);
+                
+                // Parse standard HTTP status codes or hints from the error string
+                let is_400 = e.contains(" 400 ") || e.contains("400 Bad Request");
+                let is_429 = e.contains(" 429 ") || e.contains("429 Too Many Requests");
+                
+                if is_400 {
+                    // User error (e.g. invalid prompt). Do NOT rate limit provider.
+                    dyn_state.health.consecutive_errors = 0;
+                    dyn_state.health.rate_limited_until = None;
+                } else if is_429 {
+                    dyn_state.health.consecutive_errors += 1;
+                    let errors = dyn_state.health.consecutive_errors;
+                    
+                    // Attempt to extract Retry-After if appended by provider logic
+                    let mut cooldown_seconds = None;
+                    if let Some(idx) = e.find("Retry-After: ") {
+                        let sub = &e[idx + 13..];
+                        if let Some(end_idx) = sub.find(']') {
+                            if let Ok(secs) = sub[..end_idx].trim().parse::<u64>() {
+                                cooldown_seconds = Some(secs);
+                            }
+                        }
+                    }
+                    
+                    let cooldown = cooldown_seconds.unwrap_or_else(|| {
+                        // 1 minute backoff, up to 15 minutes max
+                        std::cmp::min(errors, 15) as u64 * 60
+                    });
+                    
+                    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                    dyn_state.health.rate_limited_until = Some(now + cooldown);
+                } else {
+                    // Strange error (404, 500, network error) that user cannot simulate easily
+                    dyn_state.health.consecutive_errors += 1;
+                    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                    // Exactly 30 seconds cooldown
+                    dyn_state.health.rate_limited_until = Some(now + 30);
+                }
 
-                last_error = format!("{} ({})", provider.id, e);
+                // Only store a generic failure message to avoid exposing sensitive data to the user
+                let status_code = if is_400 { "400" } else if is_429 { "429" } else { "Unknown/500" };
+                last_error = format!("Provider '{}' encountered an internal or upstream error ({})", provider.id, status_code);
             }
         }
     }
 
+    println!("[WARN] All available providers failed for chat {}", chat_id);
     json_error(
         StatusCode::BAD_GATEWAY,
         &format!("All available AI providers failed to process the request. Last failure: {}", last_error)

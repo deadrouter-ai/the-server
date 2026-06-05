@@ -538,26 +538,13 @@ pub async fn parse_models(client: &reqwest::Client, data_array: &[Value]) -> Has
             if id.contains("Reranker") || id.contains("Embedding") {
                 continue;
             }
-
-            let mut frontend_name = match id.find('/') {
-                Some(idx) => &id[idx + 1..],
-                None => id,
-            }.to_string();
-
-            if frontend_name.ends_with("-FP8") {
-                frontend_name = frontend_name.trim_end_matches("-FP8").to_string();
-            }
-            if frontend_name.ends_with("-TEE") {
-                frontend_name = frontend_name.trim_end_matches("-TEE").to_string();
-            }
-            if frontend_name.ends_with("-AWQ") {
-                frontend_name = frontend_name.trim_end_matches("-AWQ").to_string();
-            }
-            if frontend_name.ends_with("-NVFP4") {
-                frontend_name = frontend_name.trim_end_matches("-NVFP4").to_string();
+            
+            // Filter out the privacy-filter model from Near AI
+            if id.contains("privacy-filter") {
+                continue;
             }
 
-            frontend_name = frontend_name.to_lowercase();
+            let frontend_name = crate::providers::utiles::standardize_model_name(id);
 
             let (p_in, p_out) = crate::providers::utiles::parse_model_price(model_val).unwrap_or((0.0, 0.0));
             
@@ -975,7 +962,13 @@ pub async fn call_near_ai(
         .map_err(|e| format!("Network error: {}", e))?;
 
     if !upstream_req.status().is_success() {
-        return Err(format!("{} - {}", upstream_req.status(), upstream_req.text().await.unwrap_or_default()));
+        let status = upstream_req.status();
+        let retry_after = upstream_req.headers().get("retry-after").and_then(|h| h.to_str().ok()).map(|s| s.to_string());
+        return Err(crate::providers::utiles::format_upstream_error(
+            status,
+            retry_after.as_deref(),
+            upstream_req.text().await.unwrap_or_default(),
+        ));
     }
 
     // Prices already grabbed dynamically from state

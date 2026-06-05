@@ -21,6 +21,38 @@ pub fn generate_chat_id() -> String {
     format!("chatcmpl-{}", hex::encode(rand_bytes))
 }
 
+/// Standardizes error extraction from upstream HTTP responses, including `Retry-After` headers.
+pub fn format_upstream_error(status: reqwest::StatusCode, retry_after: Option<&str>, mut body_text: String) -> String {
+    let retry_str = match retry_after {
+        Some(r) if !r.is_empty() => format!(" [Retry-After: {}]", r),
+        _ => String::new(),
+    };
+    if body_text.len() > 150 {
+        body_text.truncate(147);
+        body_text.push_str("...");
+    }
+    let cleaned_body = body_text.replace("\r", "").replace("\n", " ");
+    format!("Upstream error: {}{} - {}", status, retry_str, cleaned_body)
+}
+
+/// Standardizes an upstream model ID into a consistent frontend model name.
+/// It strips organization prefixes and common quantization/format suffixes.
+pub fn standardize_model_name(id: &str) -> String {
+    let mut name = match id.find('/') {
+        Some(idx) => &id[idx + 1..],
+        None => id,
+    }.to_string();
+
+    let suffixes = ["-FP8", "-TEE", "-AWQ", "-NVFP4", "-GGUF", "-GPTQ", "-INT8", "-INT4"];
+    for suffix in suffixes {
+        if name.ends_with(suffix) {
+            name = name.trim_end_matches(suffix).to_string();
+        }
+    }
+    
+    name.to_lowercase()
+}
+
 /// Sanitizes an upstream provider response for client consumption.
 ///
 /// Performs the following:

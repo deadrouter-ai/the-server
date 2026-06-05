@@ -710,25 +710,7 @@ pub fn parse_models(data_array: &[Value]) -> HashMap<String, DynamicModelInfo> {
             None => continue,
         };
 
-        let mut frontend_name = match upstream_id.find('/') {
-            Some(idx) => &upstream_id[idx + 1..],
-            None => &upstream_id,
-        }.to_string();
-
-        if frontend_name.ends_with("-FP8") {
-            frontend_name = frontend_name.trim_end_matches("-FP8").to_string();
-        }
-        if frontend_name.ends_with("-TEE") {
-            frontend_name = frontend_name.trim_end_matches("-TEE").to_string();
-        }
-        if frontend_name.ends_with("-AWQ") {
-            frontend_name = frontend_name.trim_end_matches("-AWQ").to_string();
-        }
-        if frontend_name.ends_with("-NVFP4") {
-            frontend_name = frontend_name.trim_end_matches("-NVFP4").to_string();
-        }
-
-        frontend_name = frontend_name.to_lowercase();
+        let frontend_name = crate::providers::utiles::standardize_model_name(&upstream_id);
 
         let (p_in, p_out) = crate::providers::utiles::parse_model_price(model_val).unwrap_or((0.0, 0.0));
         
@@ -897,8 +879,12 @@ pub async fn call_chutes_ai(
 
         if !upstream_resp.status().is_success() {
             let status = upstream_resp.status();
-            let body = upstream_resp.text().await.unwrap_or_default();
-            last_error = format!("{} - {}", status, body);
+            let retry_after = upstream_resp.headers().get("retry-after").and_then(|h| h.to_str().ok()).map(|s| s.to_string());
+            last_error = crate::providers::utiles::format_upstream_error(
+                status,
+                retry_after.as_deref(),
+                upstream_resp.text().await.unwrap_or_default(),
+            );
             if status.is_server_error() || status == 429 || status == 408 {
                 continue;
             }

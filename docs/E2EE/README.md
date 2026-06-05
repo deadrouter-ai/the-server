@@ -24,7 +24,7 @@ We offer three distinct E2EE configurations, allowing clients to scale their sec
 | **Protects against Network MITM** | Yes | Yes | Yes |
 | **Protects against Proxy Compromise** | No | Yes | Yes |
 | **Protects against Length Fingerprinting** | Yes | Yes | Yes |
-| **Protects against Timing Side-Channels** | Yes | No | Yes (Non-Streaming only) |
+| **Protects against Timing Side-Channels** | Yes | No | No |
 | **Supported Models** | All | Near AI Hardware | Near AI Hardware |
 | **Cryptography** | AES-256-GCM | XChaCha20Poly1305 | Both |
 | **Key Exchange** | Ephemeral X25519 | Attested Ed25519 -> X25519 | Both |

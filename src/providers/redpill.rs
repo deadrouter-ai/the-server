@@ -42,10 +42,7 @@ pub fn parse_models(data_array: &[Value]) -> HashMap<String, DynamicModelInfo> {
         };
 
         // Standardize base model ID prefix deduplication
-        let frontend_name = match upstream_id.find('/') {
-            Some(idx) => &upstream_id[idx + 1..],
-            None => &upstream_id,
-        }.to_lowercase();
+        let frontend_name = crate::providers::utiles::standardize_model_name(&upstream_id);
 
         let (p_in, p_out) = crate::providers::utiles::parse_model_price(model_val).unwrap_or((0.0, 0.0));
         let cost = p_in + p_out;
@@ -111,13 +108,12 @@ pub async fn call_redpill_ai(
 
     if !resp.status().is_success() {
         let status = resp.status();
-        let mut body_text = resp.text().await.unwrap_or_default();
-        if body_text.len() > 150 {
-            body_text.truncate(147);
-            body_text.push_str("...");
-        }
-        let cleaned_body = body_text.replace("\r", "").replace("\n", " ");
-        return Err(format!("Upstream error: {} - {}", status, cleaned_body));
+        let retry_after = resp.headers().get("retry-after").and_then(|h| h.to_str().ok()).map(|s| s.to_string());
+        return Err(crate::providers::utiles::format_upstream_error(
+            status,
+            retry_after.as_deref(),
+            resp.text().await.unwrap_or_default(),
+        ));
     }
 
     let provider_id = provider.id.clone();
