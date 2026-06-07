@@ -4,6 +4,7 @@ pub mod http;
 pub mod models;
 pub mod health;
 pub mod attestation;
+pub mod redaction;
 
 pub use response::*;
 pub use crypto::*;

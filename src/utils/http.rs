@@ -31,6 +31,7 @@ pub async fn forward_to_standard_provider(
     price_input: f64,
     price_output: f64,
     e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
+    pii_map: std::sync::Arc<crate::utils::redaction::PiiMap>,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
     if proxy_req.stream { proxy_req.stream_options = Some(crate::routes::api::chat_completions::StreamOptions { include_usage: true }); }
     proxy_req.model = upstream_model_name;
@@ -63,7 +64,7 @@ pub async fn forward_to_standard_provider(
             let mut total_in = 0.0;
             let mut total_out = 0.0;
             let mut line = String::new();
-            
+            let mut unredactor = crate::utils::redaction::StreamingUnredactor::new(pii_map.clone());
             use tokio::io::AsyncBufReadExt;
             while let Ok(n) = stream_reader.read_line(&mut line).await {
                 if n == 0 { break; }
@@ -87,7 +88,8 @@ pub async fn forward_to_standard_provider(
                             json, &chat_id, &frontend_requested_model, &provider_id,
                             price_input, price_output,
                             &mut total_in, &mut total_out,
-                            None
+                            None,
+                            Some(&mut unredactor)
                         );
                         let new_line = serde_json::to_string(&sanitized).unwrap_or_default();
                         yield Ok::<_, Infallible>(Frame::data(Bytes::from(format!("data: {}\n\n", new_line))));
@@ -108,11 +110,13 @@ pub async fn forward_to_standard_provider(
              let mut total_in = 0.0;
              let mut total_out = 0.0;
              let mut ratchet = e2ee_session.as_ref().map(|s| s.get_stream_ratchet());
+             let mut unredactor = crate::utils::redaction::StreamingUnredactor::new(pii_map.clone());
              let sanitized = crate::utils::response::sanitize_and_spoof_response(
                  json, &chat_id, &frontend_requested_model, &provider_id,
                  price_input, price_output,
                  &mut total_in, &mut total_out,
-                 ratchet.as_mut()
+                 ratchet.as_mut(),
+                 Some(&mut unredactor)
              );
              let new_body = serde_json::to_vec(&sanitized).unwrap_or(body_bytes.to_vec());
              Ok(BodyExt::boxed(Full::new(Bytes::from(new_body)).map_err(|e| match e {})))

@@ -614,6 +614,7 @@ pub async fn call_chutes_ai(
     client_wants_usage: bool,
     frontend_requested_model: String,
     e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
+    pii_map_arc: std::sync::Arc<crate::utils::redaction::PiiMap>,
 ) -> Result<BoxBody<Bytes, std::convert::Infallible>, String> {
     if proxy_req.stream { proxy_req.stream_options = Some(StreamOptions { include_usage: true }); }
 
@@ -766,6 +767,7 @@ pub async fn call_chutes_ai(
             model_info.price_input_1m, model_info.price_output_1m,
             e2ee_req.response_sk,
             e2ee_session,
+            pii_map_arc.clone(),
         ).await;
     }
 
@@ -784,6 +786,7 @@ async fn process_chutes_response(
     price_output_1m: f64,
     response_sk: DecapsulationKey,
     e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
+    pii_map_arc: std::sync::Arc<crate::utils::redaction::PiiMap>,
 ) -> Result<BoxBody<Bytes, std::convert::Infallible>, String> {
     if is_streaming {
         let stream_err_mapper = resp.bytes_stream().map(|res| res.map_err(IoError::other));
@@ -794,6 +797,7 @@ async fn process_chutes_response(
             let mut total_input_tokens = 0.0;
             let mut total_output_tokens = 0.0;
             let mut stream_key: Option<Zeroizing<[u8; 32]>> = None;
+            let mut unredactor = crate::utils::redaction::StreamingUnredactor::new(pii_map_arc.clone());
 
             loop {
                 line.clear();
@@ -849,7 +853,8 @@ async fn process_chutes_response(
                                                 json, &chat_id, &requested_model, &provider_id,
                                                 price_input_1m, price_output_1m,
                                                 &mut total_input_tokens, &mut total_output_tokens,
-                                                None
+                                                None,
+                                                Some(&mut unredactor)
                                             );
 
                                             if !is_usage_chunk || client_wants_usage {
@@ -868,7 +873,8 @@ async fn process_chutes_response(
                                     event, &chat_id, &requested_model, &provider_id,
                                     price_input_1m, price_output_1m,
                                     &mut total_input_tokens, &mut total_output_tokens,
-                                    None
+                                    None,
+                                    Some(&mut unredactor)
                                 );
                                 if client_wants_usage {
                                     let chunk = format!("data: {}\n\n", serde_json::to_string(&sanitized).unwrap());
@@ -895,11 +901,13 @@ async fn process_chutes_response(
         let mut total_out = 0.0;
         
         let mut ratchet = e2ee_session.as_ref().map(|s| s.get_stream_ratchet());
+        let mut unredactor = crate::utils::redaction::StreamingUnredactor::new(pii_map_arc.clone());
         let sanitized = sanitize_and_spoof_response(
             decrypted_json, &chat_id, &requested_model, &provider_id,
             price_input_1m, price_output_1m,
             &mut total_in, &mut total_out,
-            ratchet.as_mut()
+            ratchet.as_mut(),
+            Some(&mut unredactor)
         );
         
         let body_bytes = serde_json::to_vec(&sanitized).unwrap();

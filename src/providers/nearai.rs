@@ -528,6 +528,7 @@ async fn process_near_ai_response(
     client_secret: Zeroizing<[u8; 32]>,
     e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
     skip_decryption: bool,
+    pii_map_arc: std::sync::Arc<crate::utils::redaction::PiiMap>,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
     if is_streaming {
         let stream_err_mapper = resp.bytes_stream().map(|res| res.map_err(IoError::other));
@@ -539,6 +540,7 @@ async fn process_near_ai_response(
             let mut line = String::new();
             let mut total_input_tokens = 0.0;
             let mut total_output_tokens = 0.0;
+            let mut unredactor = crate::utils::redaction::StreamingUnredactor::new(pii_map_arc.clone());
 
             loop {
                 line.clear();
@@ -613,7 +615,8 @@ async fn process_near_ai_response(
                                             let sanitized_json = sanitize_and_spoof_response(
                                                 json, &chat_id, &requested_model, &provider_id,
                                                 price_input_1m, price_output_1m, &mut total_input_tokens, &mut total_output_tokens,
-                                                None
+                                                None,
+                                                Some(&mut unredactor)
                                             );
 
                                             if !is_usage_chunk || client_wants_usage {
@@ -730,10 +733,12 @@ async fn process_near_ai_response(
                 let mut out_tok = 0.0;
 
                 let mut ratchet = e2ee_session.as_ref().map(|s| s.get_stream_ratchet());
+                let mut unredactor = crate::utils::redaction::StreamingUnredactor::new(pii_map_arc.clone());
                 let mut sanitized_json = sanitize_and_spoof_response(
                     json_resp, &chat_id, &requested_model, &provider_id,
                     price_input_1m, price_output_1m, &mut in_tok, &mut out_tok,
-                    ratchet.as_mut()
+                    ratchet.as_mut(),
+                    Some(&mut unredactor)
                 );
 
                 mark_provider_healthy(&provider).await;
@@ -773,6 +778,7 @@ pub async fn call_near_ai(
     frontend_requested_model: String,
     e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
     nearai_passthrough_pubkey: Option<String>,
+    pii_map_arc: std::sync::Arc<crate::utils::redaction::PiiMap>,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
     if proxy_req.stream { proxy_req.stream_options = Some(StreamOptions { include_usage: true }); }
 
@@ -889,5 +895,6 @@ pub async fn call_near_ai(
         upstream_session_secret,
         e2ee_session,
         skip_decryption,
+        pii_map_arc.clone(),
     ).await
 }

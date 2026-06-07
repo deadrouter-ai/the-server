@@ -59,8 +59,9 @@ dcap-qvl = "0.5"
 flate2 = "1"
 
 dotenvy = { version = "0.15", optional = true }
-tracing = "0.1.44"
-tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+regex = "1"
 
 [features]
 default = []

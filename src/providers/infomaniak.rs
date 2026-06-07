@@ -75,6 +75,7 @@ pub async fn call_infomaniak(
     _client_wants_usage: bool,
     frontend_requested_model: String,
     e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
+    pii_map_arc: std::sync::Arc<crate::utils::redaction::PiiMap>,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
     let model_info = crate::utils::models::get_dynamic_model_info(provider, &frontend_requested_model).await?;
 
@@ -109,6 +110,7 @@ pub async fn call_infomaniak(
         model_info.upstream_model_name,
         model_info.price_input_1m,
         model_info.price_output_1m,
-        e2ee_session
+        e2ee_session,
+        pii_map_arc,
     ).await
 }

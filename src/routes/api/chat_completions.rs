@@ -253,8 +253,19 @@ pub async fn handle_secure_openai_proxy(
 
     let chat_id = generate_chat_id();
     let client_wants_usage = proxy_req.stream_options.as_ref().is_some_and(|o| o.include_usage);
-
     let mut last_error = String::from("All providers failed.");
+
+    let mut pii_map = crate::utils::redaction::PiiMap::new();
+    let redaction_enabled = req.headers.get("x-redaction")
+        .map(|v| v.as_str() != "false")
+        .unwrap_or(true);
+
+    if redaction_enabled && nearai_passthrough_pubkey.is_none() {
+        for msg in proxy_req.messages.iter_mut() {
+            msg.content = pii_map.redact(&msg.content);
+        }
+    }
+    let pii_map_arc = std::sync::Arc::new(pii_map);
 
     let e2ee_session = e2ee_session.map(std::sync::Arc::new);
     // ── Routing Execution ──
@@ -274,19 +285,19 @@ pub async fn handle_secure_openai_proxy(
         // Dispatch based on provider ID
         let result = match provider.id.as_str() {
             "near-ai" => {
-                call_near_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone(), nearai_passthrough_pubkey.clone()).await
+                call_near_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone(), nearai_passthrough_pubkey.clone(), pii_map_arc.clone()).await
             }
             "chutes" => {
-                crate::providers::chutes::call_chutes_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await
+                crate::providers::chutes::call_chutes_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone(), pii_map_arc.clone()).await
             }
             "redpill" => {
-                crate::providers::redpill::call_redpill_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await
+                crate::providers::redpill::call_redpill_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone(), pii_map_arc.clone()).await
             }
             "infomaniak" => {
-                crate::providers::infomaniak::call_infomaniak(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await
+                crate::providers::infomaniak::call_infomaniak(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone(), pii_map_arc.clone()).await
             }
             "tinfoil" => {
-                crate::providers::tinfoil::call_tinfoil(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone()).await
+                crate::providers::tinfoil::call_tinfoil(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone(), pii_map_arc.clone()).await
             }
             _ => {
                 Err(format!("Provider {} not implemented.", provider.id))

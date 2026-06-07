@@ -94,6 +94,7 @@ pub async fn call_tinfoil(
     client_wants_usage: bool,
     frontend_requested_model: String,
     e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
+    pii_map_arc: std::sync::Arc<crate::utils::redaction::PiiMap>,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
     
     let model_info = crate::utils::models::get_dynamic_model_info(provider, &frontend_requested_model).await?;
@@ -127,6 +128,7 @@ pub async fn call_tinfoil(
         let response_stream = async_stream::stream! {
             let mut total_input_tokens = 0.0;
             let mut total_output_tokens = 0.0;
+            let mut unredactor = crate::utils::redaction::StreamingUnredactor::new(pii_map_arc.clone());
             
             while let Some(result) = rx.recv().await {
                 match result {
@@ -139,7 +141,8 @@ pub async fn call_tinfoil(
                             json, &chat_id, &frontend_requested_model, &provider_id,
                             model_info.price_input_1m, model_info.price_output_1m,
                             &mut total_input_tokens, &mut total_output_tokens,
-                            None
+                            None,
+                            Some(&mut unredactor)
                         );
                         
                         if !is_usage_chunk || client_wants_usage {
@@ -174,12 +177,14 @@ pub async fn call_tinfoil(
         let mut in_tok = 0.0;
         let mut out_tok = 0.0;
         let mut ratchet = e2ee_session.as_ref().map(|s| s.get_stream_ratchet());
+        let mut unredactor = crate::utils::redaction::StreamingUnredactor::new(pii_map_arc.clone());
         
         let mut sanitized_json = sanitize_and_spoof_response(
             json_resp, &chat_id, &frontend_requested_model, &provider_id,
             model_info.price_input_1m, model_info.price_output_1m,
             &mut in_tok, &mut out_tok,
-            ratchet.as_mut()
+            ratchet.as_mut(),
+            Some(&mut unredactor)
         );
         
         sanitized_json["pad"] = Value::String("".to_string());

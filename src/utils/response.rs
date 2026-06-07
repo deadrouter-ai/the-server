@@ -18,6 +18,7 @@ pub fn sanitize_and_spoof_response(
     total_input_tokens: &mut f64,
     total_output_tokens: &mut f64,
     mut e2ee_ratchet: Option<&mut crate::crypto_e2ee::StreamRatchet>,
+    mut unredactor: Option<&mut crate::utils::redaction::StreamingUnredactor>,
 ) -> Value {
     let mut new_root = serde_json::Map::new();
 
@@ -50,20 +51,37 @@ pub fn sanitize_and_spoof_response(
                         let mut clean_msg = serde_json::Map::new();
                         let reasoning_val = msg_obj.remove("reasoning").or_else(|| msg_obj.remove("reasoning_content"));
                         if let Some(mut r) = reasoning_val {
-                            if let Some(ref mut ratchet) = e2ee_ratchet
-                                && let Some(s) = r.as_str() {
-                                    r = Value::String(ratchet.encrypt_chunk(s.as_bytes()));
+                            if let Some(s) = r.as_str() {
+                                let mut text = s.to_string();
+                                if let Some(ref mut unredactor) = unredactor {
+                                    text = unredactor.process_chunk(&text);
+                                    text.push_str(&unredactor.flush());
                                 }
+                                if let Some(ref mut ratchet) = e2ee_ratchet {
+                                    r = Value::String(ratchet.encrypt_chunk(text.as_bytes()));
+                                } else {
+                                    r = Value::String(text);
+                                }
+                            }
                             clean_msg.insert("reasoning_content".to_string(), r);
                         }
                         let allowed_msg_fields = ["role", "content", "tool_calls", "function_call", "refusal"];
                         for field in allowed_msg_fields {
                             if let Some(mut val) = msg_obj.remove(field) {
-                                if field == "content"
-                                    && let Some(ref mut ratchet) = e2ee_ratchet
-                                        && let Some(s) = val.as_str() {
-                                            val = Value::String(ratchet.encrypt_chunk(s.as_bytes()));
+                                if field == "content" {
+                                    if let Some(s) = val.as_str() {
+                                        let mut text = s.to_string();
+                                        if let Some(ref mut unredactor) = unredactor {
+                                            text = unredactor.process_chunk(&text);
+                                            text.push_str(&unredactor.flush()); // non-streaming usually finishes here
                                         }
+                                        if let Some(ref mut ratchet) = e2ee_ratchet {
+                                            val = Value::String(ratchet.encrypt_chunk(text.as_bytes()));
+                                        } else {
+                                            val = Value::String(text);
+                                        }
+                                    }
+                                }
                                 clean_msg.insert(field.to_string(), val);
                             }
                         }
@@ -74,20 +92,35 @@ pub fn sanitize_and_spoof_response(
                         let mut clean_delta = serde_json::Map::new();
                         let reasoning_val = delta_obj.remove("reasoning").or_else(|| delta_obj.remove("reasoning_content"));
                         if let Some(mut r) = reasoning_val {
-                            if let Some(ref mut ratchet) = e2ee_ratchet
-                                && let Some(s) = r.as_str() {
-                                    r = Value::String(ratchet.encrypt_chunk(s.as_bytes()));
+                            if let Some(s) = r.as_str() {
+                                let mut text = s.to_string();
+                                if let Some(ref mut unredactor) = unredactor {
+                                    text = unredactor.process_chunk(&text);
                                 }
+                                if let Some(ref mut ratchet) = e2ee_ratchet {
+                                    r = Value::String(ratchet.encrypt_chunk(text.as_bytes()));
+                                } else {
+                                    r = Value::String(text);
+                                }
+                            }
                             clean_delta.insert("reasoning_content".to_string(), r);
                         }
                         let allowed_delta_fields = ["role", "content", "tool_calls", "function_call", "refusal"];
                         for field in allowed_delta_fields {
                             if let Some(mut val) = delta_obj.remove(field) {
-                                if field == "content"
-                                    && let Some(ref mut ratchet) = e2ee_ratchet
-                                        && let Some(s) = val.as_str() {
-                                            val = Value::String(ratchet.encrypt_chunk(s.as_bytes()));
+                                if field == "content" {
+                                    if let Some(s) = val.as_str() {
+                                        let mut text = s.to_string();
+                                        if let Some(ref mut unredactor) = unredactor {
+                                            text = unredactor.process_chunk(&text);
                                         }
+                                        if let Some(ref mut ratchet) = e2ee_ratchet {
+                                            val = Value::String(ratchet.encrypt_chunk(text.as_bytes()));
+                                        } else {
+                                            val = Value::String(text);
+                                        }
+                                    }
+                                }
                                 clean_delta.insert(field.to_string(), val);
                             }
                         }
