@@ -58,6 +58,11 @@ pub struct ChatCompletionRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seed: Option<i64>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub store: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_prompt: Option<bool>,
+
     #[serde(skip_serializing, default)]
     pub provider: Option<Vec<String>>,
     #[serde(skip_serializing, default)]
@@ -110,6 +115,10 @@ pub async fn handle_secure_openai_proxy(
         }
     };
     drop(request_body_val);
+
+    // Force privacy flags unconditionally for all proxy requests
+    proxy_req.store = Some(false);
+    proxy_req.cache_prompt = Some(false);
 
     // E2EE Decryption
     let e2ee_enabled = req.headers.get("x-e2ee-enabled").map(|s| s.as_str()) == Some("true");

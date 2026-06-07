@@ -147,7 +147,8 @@ pub async fn start(state: Arc<AppState>) {
                                     _ => "Tor Onion (HTTP/1.1) [Plaintext]",
                                 };
                                 let (parts, incoming_body) = req.into_parts();
-                                let body_bytes = match http_body_util::BodyExt::collect(incoming_body).await {
+                                let limited_body = http_body_util::Limited::new(incoming_body, 10 * 1024 * 1024);
+                                let body_bytes = match http_body_util::BodyExt::collect(limited_body).await {
                                     Ok(collected) => collected.to_bytes(),
                                     Err(_) => Bytes::new(),
                                 };
@@ -214,7 +215,8 @@ pub async fn start(state: Arc<AppState>) {
                                 _ => "Tor Onion (HTTP/1.1)",
                             };
                             let (parts, incoming_body) = req.into_parts();
-                            let body_bytes = match http_body_util::BodyExt::collect(incoming_body).await {
+                            let limited_body = http_body_util::Limited::new(incoming_body, 10 * 1024 * 1024);
+                            let body_bytes = match http_body_util::BodyExt::collect(limited_body).await {
                                 Ok(collected) => collected.to_bytes(),
                                 Err(_) => Bytes::new(),
                             };
