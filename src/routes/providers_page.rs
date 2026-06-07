@@ -18,6 +18,7 @@ pub struct RenderProviderItem {
     pub legal_flag: String,
     pub data_processing_location: String,
     pub processing_flag: String,
+    pub supported: bool,
 }
 
 #[derive(Template)]
@@ -25,7 +26,8 @@ pub struct RenderProviderItem {
 pub struct ProvidersTemplate {
     pub csp_nonce: String,
     pub onion_site: String,
-    pub providers: Vec<RenderProviderItem>,
+    pub supported_providers: Vec<RenderProviderItem>,
+    pub unsupported_providers: Vec<RenderProviderItem>,
     pub search_query: String,
     pub filter_zdr: bool,
     pub filter_zds: bool,
@@ -106,8 +108,8 @@ pub async fn handle_providers_page(
         }
     }
 
-    // 2. Fetch and filter providers
-    let mut provider_items = Vec::new();
+    // 2. Fetch and filter active (supported) providers
+    let mut supported_items = Vec::new();
 
     for provider in state.providers.values() {
         // Apply search query filter
@@ -131,13 +133,13 @@ pub async fn handle_providers_page(
             .to_string()
             .to_uppercase();
 
-        let logo_url = if let Ok(entries) = std::fs::read_dir("static/providers-logos") {
+        let logo_url = if let Ok(entries) = std::fs::read_dir("static/logos") {
             let mut found = None;
             for entry in entries.flatten() {
                 if let Some(name) = entry.file_name().to_str() {
                     let prefix = format!("{}.", provider.id);
                     if name.to_lowercase().starts_with(&prefix) {
-                        found = Some(format!("/providers-logos/{}", name));
+                        found = Some(format!("/logos/{}", name));
                         break;
                     }
                 }
@@ -150,7 +152,7 @@ pub async fn handle_providers_page(
         let legal_flag = get_flag(&provider.legal_location);
         let processing_flag = get_flag(&provider.data_processing_location);
 
-        provider_items.push(RenderProviderItem {
+        supported_items.push(RenderProviderItem {
             id: provider.id.clone(),
             name: provider.name.clone(),
             description: provider.description.clone(),
@@ -164,38 +166,98 @@ pub async fn handle_providers_page(
             legal_flag,
             data_processing_location: provider.data_processing_location.to_uppercase(),
             processing_flag,
+            supported: true,
         });
     }
 
-    // Sort by name
-    provider_items.sort_by(|a, b| a.name.cmp(&b.name));
+    // Sort active providers by name
+    supported_items.sort_by(|a, b| a.name.cmp(&b.name));
 
-    // 3. Generate a secure, 64-character random nonce for CSP
+    // 3. Define and filter non-supported (external) providers
+    let mut unsupported_candidates = vec![
+        RenderProviderItem {
+            id: "openai".to_string(),
+            name: "OpenAI".to_string(),
+            description: "The industry standard for general LLMs. Operates under standard corporate clouds with data retention, telemetry, and training enabled by default.".to_string(),
+            logo_letter: "O".to_string(),
+            logo_url: Some("/logos/openai.svg".to_string()),
+            privacy_rating: 2,
+            zdr: false,
+            zds: false,
+            tee: false,
+            legal_location: "US".to_string(),
+            legal_flag: get_flag("US"),
+            data_processing_location: "US".to_string(),
+            processing_flag: get_flag("US"),
+            supported: false,
+        },
+        RenderProviderItem {
+            id: "anthropic".to_string(),
+            name: "Anthropic".to_string(),
+            description: "Creators of the Claude models. Focuses on AI alignment, but processes prompts within central corporate clouds under standard US jurisdictions.".to_string(),
+            logo_letter: "A".to_string(),
+            logo_url: None,
+            privacy_rating: 2,
+            zdr: false,
+            zds: false,
+            tee: false,
+            legal_location: "US".to_string(),
+            legal_flag: get_flag("US"),
+            data_processing_location: "US".to_string(),
+            processing_flag: get_flag("US"),
+            supported: false,
+        },
+    ];
+
+    let mut unsupported_items = Vec::new();
+    for provider in unsupported_candidates.drain(..) {
+        // Apply search query filter
+        if !search_query.is_empty() {
+            let name_lower = provider.name.to_lowercase();
+            let id_lower = provider.id.to_lowercase();
+            if !name_lower.contains(&search_query) && !id_lower.contains(&search_query) {
+                continue;
+            }
+        }
+
+        // Apply toggle filters
+        if filter_zdr && !provider.zdr { continue; }
+        if filter_zds && !provider.zds { continue; }
+        if filter_tee && !provider.tee { continue; }
+
+        unsupported_items.push(provider);
+    }
+
+    // Sort non-supported by name
+    unsupported_items.sort_by(|a, b| a.name.cmp(&b.name));
+
+    // 4. Generate a secure, 64-character random nonce for CSP
     let mut rand_bytes = [0u8; 32];
     aws_lc_rs::rand::fill(&mut rand_bytes).unwrap();
 
     let mut hex_buf = [0u8; 64];
     let nonce = base16ct::lower::encode_str(&rand_bytes, &mut hex_buf).expect("base16ct encoding failed");
 
-    // 4. Populate the Askama template
+    // 5. Populate the Askama template
     let onion_site = state.onion_data.read().unwrap().onion_domain.clone();
     let template = ProvidersTemplate {
         csp_nonce: nonce.to_string(),
         onion_site,
-        providers: provider_items,
+        supported_providers: supported_items,
+        unsupported_providers: unsupported_items,
         search_query,
         filter_zdr,
         filter_zds,
         filter_tee,
     };
 
-    // 5. Render the HTML
+    // 6. Render the HTML
     let html_string = match template.render() {
         Ok(html) => html,
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, vec![], format!("Render failed: {}", e)),
     };
 
-    // 6. Construct the ultra-strict CSP string dynamically
+    // 7. Construct the ultra-strict CSP string dynamically
     let csp_string = format!(
         "default-src 'none'; \
          script-src 'none'; \
@@ -208,7 +270,7 @@ pub async fn handle_providers_page(
         nonce
     );
 
-    // 7. Build the Response with the headers
+    // 8. Build the Response with the headers
     let headers = vec![
         ("Content-Security-Policy", csp_string),
         ("X-Frame-Options", "DENY".to_string()),

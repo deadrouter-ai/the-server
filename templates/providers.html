@@ -440,6 +440,80 @@
             border-radius: var(--radius-sm);
         }
 
+        .section-title {
+            font-size: 1.5rem;
+            margin: 4rem auto 1.5rem auto;
+            max-width: 1240px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.75rem;
+            position: relative;
+        }
+
+        .section-title-left {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title-left::before {
+            content: '>';
+            color: var(--accent);
+            font-family: var(--font-mono);
+            font-weight: 700;
+        }
+
+        .badge-supported {
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            font-weight: 600;
+            background: rgba(16, 185, 129, 0.08);
+            color: var(--success-text);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            padding: 0.2rem 0.6rem;
+            border-radius: var(--radius-sm);
+            text-transform: uppercase;
+        }
+
+        .badge-unsupported {
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            font-weight: 600;
+            background: rgba(239, 68, 68, 0.08);
+            color: var(--error-text);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 0.2rem 0.6rem;
+            border-radius: var(--radius-sm);
+            text-transform: uppercase;
+        }
+
+        .support-badge {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 0.15rem 0.4rem;
+            border-radius: var(--radius-sm);
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            display: inline-flex;
+            align-items: center;
+            margin-left: auto;
+        }
+
+        .support-badge.supported {
+            background: rgba(16, 185, 129, 0.08);
+            color: var(--success-text);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .support-badge.unsupported {
+            background: rgba(239, 68, 68, 0.08);
+            color: var(--error-text);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
         .model-card:hover .model-logo-placeholder {
             border-color: rgba(0, 240, 255, 0.3);
             background: rgba(0, 240, 255, 0.08);
@@ -627,6 +701,45 @@
             opacity: 1;
             visibility: visible;
             transform: translateX(-50%) translateY(0);
+        }
+
+        /* Tooltip responsive placement offsets */
+        .security-tags .tag:nth-child(1)::after {
+            left: 0;
+            transform: translateX(0) translateY(8px);
+        }
+
+        .security-tags .tag:nth-child(1):hover::after {
+            transform: translateX(0) translateY(0);
+        }
+
+        .security-tags .tag:nth-child(1)::before {
+            left: 15px;
+            transform: translateY(8px);
+        }
+
+        .security-tags .tag:nth-child(1):hover::before {
+            transform: translateY(0);
+        }
+
+        .security-tags .tag:nth-child(3)::after {
+            left: auto;
+            right: 0;
+            transform: translateX(0) translateY(8px);
+        }
+
+        .security-tags .tag:nth-child(3):hover::after {
+            transform: translateX(0) translateY(0);
+        }
+
+        .security-tags .tag:nth-child(3)::before {
+            left: auto;
+            right: 15px;
+            transform: translateY(8px);
+        }
+
+        .security-tags .tag:nth-child(3):hover::before {
+            transform: translateY(0);
         }
 
         /* --- EMPTY STATE --- */
@@ -1106,8 +1219,8 @@
         </header>
 
         <section class="models-section">
+            {% if supported_providers.is_empty() && unsupported_providers.is_empty() %}
             <div class="models-grid">
-                {% if providers.is_empty() %}
                 <div class="empty-state-card">
                     <div class="empty-icon">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
@@ -1126,8 +1239,15 @@
                     <a href="/providers" class="btn btn-secondary btn-sm" style="margin-top: 0.5rem;">Clear Search</a>
                     {% endif %}
                 </div>
-                {% else %}
-                {% for item in providers %}
+            </div>
+            {% else %}
+
+            {% if !supported_providers.is_empty() %}
+            <h2 class="section-title">
+                <span class="section-title-left">DeadRouter Providers</span>
+            </h2>
+            <div class="models-grid" style="margin-bottom: 3rem;">
+                {% for item in supported_providers %}
                 <div class="model-card">
                     <div class="model-header">
                         <div class="model-title-group">
@@ -1137,7 +1257,9 @@
                             {% else %}
                             <div class="model-logo-placeholder">{{ item.logo_letter }}</div>
                             {% endif %}
-                            <h4>{{ item.name }}</h4>
+                            <h4>
+                                {{ item.name }}
+                            </h4>
                         </div>
                         <div class="privacy-score {% if item.privacy_rating >= 5 %}score-high{% endif %} has-tooltip"
                             data-tooltip="Privacy Score: {{ item.privacy_rating * 2 }}/10">
@@ -1192,8 +1314,85 @@
                     </div>
                 </div>
                 {% endfor %}
-                {% endif %}
             </div>
+            {% endif %}
+
+            {% if !unsupported_providers.is_empty() %}
+            <h2 class="section-title">
+                <span class="section-title-left">Non-Supported Providers</span>
+            </h2>
+            <div class="models-grid">
+                {% for item in unsupported_providers %}
+                <div class="model-card">
+                    <div class="model-header">
+                        <div class="model-title-group">
+                            {% if item.logo_url.is_some() %}
+                            <img src="{{ item.logo_url.as_ref().unwrap() }}" alt="{{ item.name }} logo"
+                                class="model-logo-img" />
+                            {% else %}
+                            <div class="model-logo-placeholder">{{ item.logo_letter }}</div>
+                            {% endif %}
+                            <h4>
+                                {{ item.name }}
+                            </h4>
+                        </div>
+                        <div class="privacy-score {% if item.privacy_rating >= 5 %}score-high{% endif %} has-tooltip"
+                            data-tooltip="Privacy Score: {{ item.privacy_rating * 2 }}/10">
+                            {{ item.privacy_rating * 2 }}
+                        </div>
+                    </div>
+
+                    <p class="model-desc">{{ item.description }}</p>
+
+                    <div class="model-tags-container">
+                        <div class="security-tags">
+                            {% if item.zdr %}
+                            <span class="tag tag-success has-tooltip"
+                                data-tooltip="Zero Data Retention guarantees data is dropped.">✓ ZDR</span>
+                            {% else %}
+                            <span class="tag tag-error has-tooltip"
+                                data-tooltip="Zero Data Retention guarantees data is dropped.">✗ ZDR</span>
+                            {% endif %}
+
+                            {% if item.zds %}
+                            <span class="tag tag-success has-tooltip"
+                                data-tooltip="Zero Data Scanning guarantees data is never read in transit.">✓ ZDS</span>
+                            {% else %}
+                            <span class="tag tag-error has-tooltip"
+                                data-tooltip="Zero Data Scanning guarantees data is never read in transit.">✗ ZDS</span>
+                            {% endif %}
+
+                            {% if item.tee %}
+                            <span class="tag tag-success has-tooltip"
+                                data-tooltip="Verified Trusted Execution Environment.">✓ TEE</span>
+                            {% else %}
+                            <span class="tag tag-error has-tooltip" data-tooltip="Standard infrastructure (No TEE).">✗
+                                TEE</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="location-blocks">
+                            <div class="location-block">
+                                <span class="location-label">Legal Location</span>
+                                <div class="location-value">
+                                    <span class="flag-icon">{{ item.legal_flag }}</span> {{ item.legal_location }}
+                                </div>
+                            </div>
+                            <div class="location-block">
+                                <span class="location-label">Data Processing</span>
+                                <div class="location-value">
+                                    <span class="flag-icon">{{ item.processing_flag }}</span> {{
+                                    item.data_processing_location }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% endif %}
         </section>
     </div>
 
