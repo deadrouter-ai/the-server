@@ -12,10 +12,8 @@ use aws_lc_rs::{
     hkdf::{Salt, HKDF_SHA256},
     kem::{Ciphertext, DecapsulationKey, EncapsulationKey, ML_KEM_768},
 };
-use chacha20poly1305::{
-    aead::{Aead, KeyInit},
-    ChaCha20Poly1305, Nonce,
-};
+use aws_lc_rs::aead::{CHACHA20_POLY1305, UnboundKey, LessSafeKey, Aad, Nonce};
+
 use base64ct::{Base64, Encoding};
 use flate2::{Compression, read::GzDecoder, write::GzEncoder};
 use serde_json::Value;
@@ -75,32 +73,40 @@ fn derive_key(shared_secret: &[u8], mlkem_ct: &[u8], info: &[u8]) -> Result<Zero
 ///
 /// Returns: `[nonce (12B)] [ciphertext + auth_tag (16B)]`
 fn chacha_encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, String> {
-    let cipher = ChaCha20Poly1305::new(key.into());
-    let nonce_bytes = gen_random_bytes::<CHACHA_NONCE_LEN>();
-    let nonce = Nonce::from_slice(&nonce_bytes);
+    let unbound_key = UnboundKey::new(&CHACHA20_POLY1305, key).map_err(|_| "Invalid key")?;
+    let safe_key = LessSafeKey::new(unbound_key);
 
-    let ciphertext = cipher.encrypt(nonce, plaintext)
+    let nonce_bytes = crate::utils::gen_random_bytes::<CHACHA_NONCE_LEN>();
+    let nonce = Nonce::try_assume_unique_for_key(&nonce_bytes).unwrap();
+
+    let mut in_out = plaintext.to_vec();
+    safe_key.seal_in_place_append_tag(nonce, Aad::empty(), &mut in_out)
         .map_err(|_| "ChaCha20 encryption failed")?;
 
-    let mut result = Vec::with_capacity(CHACHA_NONCE_LEN + ciphertext.len());
+    let mut result = Vec::with_capacity(CHACHA_NONCE_LEN + in_out.len());
     result.extend_from_slice(&nonce_bytes);
-    result.extend_from_slice(&ciphertext);
+    result.extend_from_slice(&in_out);
     Ok(result)
 }
 
 /// Decrypts a ChaCha20-Poly1305 blob: `[nonce (12B)] [ciphertext + auth_tag]`
 fn chacha_decrypt(key: &[u8; 32], data: &[u8]) -> Result<Vec<u8>, String> {
-    if data.len() < CHACHA_NONCE_LEN + CHACHA_TAG_LEN {
+    if data.len() < CHACHA_NONCE_LEN + 16 {
         return Err("Ciphertext too short for ChaCha20-Poly1305".into());
     }
 
-    let cipher = ChaCha20Poly1305::new(key.into());
-    let nonce = Nonce::from_slice(&data[..CHACHA_NONCE_LEN]);
+    let unbound_key = UnboundKey::new(&CHACHA20_POLY1305, key).map_err(|_| "Invalid key")?;
+    let safe_key = LessSafeKey::new(unbound_key);
 
-    let plaintext = cipher.decrypt(nonce, &data[CHACHA_NONCE_LEN..])
-        .map_err(|_| "ChaCha20 decryption/auth failed")?;
+    let nonce_bytes = &data[..CHACHA_NONCE_LEN];
+    let nonce = Nonce::try_assume_unique_for_key(nonce_bytes).map_err(|_| "Invalid nonce")?;
 
-    Ok(plaintext)
+    let mut in_out = data[CHACHA_NONCE_LEN..].to_vec();
+    let pt_len = safe_key.open_in_place(nonce, Aad::empty(), &mut in_out)
+        .map_err(|_| "ChaCha20 decryption/auth failed")?.len();
+
+    in_out.truncate(pt_len);
+    Ok(in_out)
 }
 
 // ── Gzip Helpers ──────────────────────────────────────────────────────────────
@@ -325,9 +331,11 @@ pub async fn fetch_instances(
     api_key: &str,
 ) -> Result<(Vec<ChutesInstanceInfo>, u64), String> {
     let url = format!("{}/e2e/instances/{}", api_base, chute_id);
-    let resp = client
-        .get(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
+    let mut req = client.get(&url);
+    if !api_key.is_empty() {
+        req = req.header("Authorization", format!("Bearer {}", api_key));
+    }
+    let resp = req
         .send()
         .await
         .map_err(|e| format!("Instance discovery network error: {}", e))?;
@@ -386,9 +394,11 @@ pub async fn resolve_chute_id(
     model_name: &str,
 ) -> Result<String, String> {
     let url = format!("{}/v1/models", models_base);
-    let resp = client
-        .get(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
+    let mut req = client.get(&url);
+    if !api_key.is_empty() {
+        req = req.header("Authorization", format!("Bearer {}", api_key));
+    }
+    let resp = req
         .send()
         .await
         .map_err(|e| format!("Model resolution network error: {}", e))?;
@@ -458,9 +468,11 @@ pub async fn verify_chutes_tee_evidence(
 
     // 2. Fetch TEE evidence
     let url = format!("{}/chutes/{}/evidence?nonce={}", api_base, chute_id, nonce_hex);
-    let resp = client
-        .get(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
+    let mut req = client.get(&url);
+    if !api_key.is_empty() {
+        req = req.header("Authorization", format!("Bearer {}", api_key));
+    }
+    let resp = req
         .send()
         .await
         .map_err(|e| format!("TEE evidence fetch failed: {}", e))?;
@@ -709,15 +721,20 @@ pub async fn call_chutes_ai(
         let e2ee_req = build_e2ee_request(&instance.e2e_pubkey, &payload)?;
 
         let invoke_url = format!("{}/e2e/invoke", api_base);
-        let upstream_resp = match state.http_client
+        let mut req = state.http_client
             .post(&invoke_url)
-            .header("Authorization", format!("Bearer {}", provider.api_key))
             .header("Content-Type", "application/octet-stream")
             .header("X-Chute-Id", &chute_id)
             .header("X-Instance-Id", &instance.instance_id)
             .header("X-E2E-Nonce", &nonce)
             .header("X-E2E-Stream", if proxy_req.stream { "true" } else { "false" })
-            .header("X-E2E-Path", "/v1/chat/completions")
+            .header("X-E2E-Path", "/v1/chat/completions");
+            
+        if !provider.api_key.is_empty() {
+            req = req.header("Authorization", format!("Bearer {}", provider.api_key));
+        }
+
+        let upstream_resp = match req
             .body(e2ee_req.blob)
             .send()
             .await

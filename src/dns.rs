@@ -477,12 +477,14 @@ async fn establish_dnscrypt_session() -> Result<DnscryptClientState, String> {
 
 pub struct CustomDnscryptResolver {
     session: std::sync::Arc<tokio::sync::Mutex<Option<DnscryptClientState>>>,
+    cache: std::sync::Arc<tokio::sync::RwLock<std::collections::HashMap<String, (IpAddr, std::time::Instant)>>>,
 }
 
 impl CustomDnscryptResolver {
     pub fn new() -> Self {
         Self {
             session: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
+            cache: std::sync::Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())),
         }
     }
 
@@ -507,6 +509,7 @@ impl CustomDnscryptResolver {
     fn clone_resolver(&self) -> Self {
         Self {
             session: self.session.clone(),
+            cache: self.cache.clone(),
         }
     }
 }
@@ -517,6 +520,17 @@ impl Resolve for CustomDnscryptResolver {
         let resolver = self.clone_resolver();
 
         Box::pin(async move {
+            {
+                let cache_read = resolver.cache.read().await;
+                if let Some((ip, time)) = cache_read.get(&domain) {
+                    if time.elapsed() < std::time::Duration::from_secs(300) {
+                        tracing::debug!("Using cached DNS for {}", domain);
+                        let addrs: Box<dyn Iterator<Item = SocketAddr> + Send> = Box::new(std::iter::once(SocketAddr::new(*ip, 0)));
+                        return Ok(addrs);
+                    }
+                }
+            }
+
             tracing::debug!("Resolving {} via DNSCrypt...", domain);
             let session = resolver
                 .get_or_establish_session()
@@ -532,6 +546,11 @@ impl Resolve for CustomDnscryptResolver {
                     tracing::debug!("DNSCrypt resolution failed: {:?}", e);
                     Box::new(std::io::Error::new(std::io::ErrorKind::NotFound, e))
                 })?;
+
+            {
+                let mut cache_write = resolver.cache.write().await;
+                cache_write.insert(domain.clone(), (ip, std::time::Instant::now()));
+            }
 
             tracing::debug!("Resolved {} -> {}", domain, ip);
             let addrs: Box<dyn Iterator<Item = SocketAddr> + Send> =

@@ -97,7 +97,7 @@ async fn main() {
 
     // Chutes AI Provider
     let chutes_key = if is_dev {
-        std::env::var("CHUTES_AI_KEY").unwrap_or_default()
+        std::env::var("CHUTES_KEY").unwrap_or_default()
     } else {
         String::new()
     };
