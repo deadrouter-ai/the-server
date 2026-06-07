@@ -35,29 +35,7 @@ pub fn get_f64_coerced(val: &Value, key: &str) -> Option<f64> {
 /// Parses the prompt and completion pricing details out of a model's JSON block.
 /// Automatically handles token vs. million-token pricing representations.
 pub fn parse_model_price(model_val: &Value) -> Option<(f64, f64)> {
-    // 1. Try pricing block (OpenRouter style)
-    if let Some(pricing) = model_val.get("pricing")
-        && let (Some(p_in), Some(p_out)) = (
-            get_f64_coerced(pricing, "prompt").or_else(|| get_f64_coerced(pricing, "price_input_1m")).or_else(|| get_f64_coerced(pricing, "input")),
-            get_f64_coerced(pricing, "completion").or_else(|| get_f64_coerced(pricing, "price_output_1m")).or_else(|| get_f64_coerced(pricing, "output"))
-        ) {
-            let input_1m = if p_in < 0.001 { p_in * 1_000_000.0 } else { p_in };
-            let output_1m = if p_out < 0.001 { p_out * 1_000_000.0 } else { p_out };
-            return Some((input_1m, output_1m));
-        }
-
-    // 2. Try price block (alternative formats)
-    if let Some(price) = model_val.get("price")
-        && let (Some(p_in), Some(p_out)) = (
-            get_f64_coerced(price, "prompt").or_else(|| get_f64_coerced(price, "input")),
-            get_f64_coerced(price, "completion").or_else(|| get_f64_coerced(price, "output"))
-        ) {
-            let input_1m = if p_in < 0.001 { p_in * 1_000_000.0 } else { p_in };
-            let output_1m = if p_out < 0.001 { p_out * 1_000_000.0 } else { p_out };
-            return Some((input_1m, output_1m));
-        }
-
-    // 3. Try root-level fields (e.g. price_input_1m, price_output_1m)
+    // 1. Try root-level fields (unambiguous)
     if let (Some(p_in), Some(p_out)) = (
         get_f64_coerced(model_val, "price_input_1m"),
         get_f64_coerced(model_val, "price_output_1m")
@@ -65,5 +43,46 @@ pub fn parse_model_price(model_val: &Value) -> Option<(f64, f64)> {
         return Some((p_in, p_out));
     }
 
+    // 2. Try pricing block (OpenRouter style)
+    if let Some(pricing) = model_val.get("pricing") {
+        let p_in_1m = get_f64_coerced(pricing, "price_input_1m")
+            .or_else(|| get_f64_coerced(pricing, "prompt").map(|p| if p < 0.001 && p > 0.0 { p * 1_000_000.0 } else { p }))
+            .or_else(|| get_f64_coerced(pricing, "input").map(|p| if p < 0.001 && p > 0.0 { p * 1_000_000.0 } else { p }));
+        
+        let p_out_1m = get_f64_coerced(pricing, "price_output_1m")
+            .or_else(|| get_f64_coerced(pricing, "completion").map(|p| if p < 0.001 && p > 0.0 { p * 1_000_000.0 } else { p }))
+            .or_else(|| get_f64_coerced(pricing, "output").map(|p| if p < 0.001 && p > 0.0 { p * 1_000_000.0 } else { p }));
+            
+        if let (Some(i), Some(o)) = (p_in_1m, p_out_1m) {
+            return Some((i, o));
+        }
+    }
+
+    // 3. Try price block (alternative formats)
+    if let Some(price) = model_val.get("price") {
+        let p_in_1m = get_f64_coerced(price, "prompt")
+            .or_else(|| get_f64_coerced(price, "input"))
+            .map(|p| if p < 0.001 && p > 0.0 { p * 1_000_000.0 } else { p });
+            
+        let p_out_1m = get_f64_coerced(price, "completion")
+            .or_else(|| get_f64_coerced(price, "output"))
+            .map(|p| if p < 0.001 && p > 0.0 { p * 1_000_000.0 } else { p });
+
+        if let (Some(i), Some(o)) = (p_in_1m, p_out_1m) {
+            return Some((i, o));
+        }
+    }
+
+
     None
+}
+
+/// Helper function to asynchronously fetch dynamic model information for a given provider.
+pub async fn get_dynamic_model_info(
+    provider: &std::sync::Arc<crate::ProviderConfig>,
+    frontend_requested_model: &str,
+) -> Result<crate::DynamicModelInfo, String> {
+    let state_read = provider.dynamic_state.read().await;
+    state_read.dynamic_models.get(frontend_requested_model).cloned()
+        .ok_or_else(|| format!("Model {} not dynamically configured", frontend_requested_model))
 }

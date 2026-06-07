@@ -86,7 +86,7 @@ fn verify_cert(cert: &[u8], provider_pk: &[u8; 32]) -> Option<DnscryptCert> {
     use aws_lc_rs::signature::{ED25519, UnparsedPublicKey};
     let pk = UnparsedPublicKey::new(&ED25519, provider_pk);
     if pk.verify(&cert[72..], &cert[8..72]).is_err() {
-        println!("[DNS] Certificate signature verification failed");
+        tracing::debug!("Certificate signature verification failed");
         return None;
     }
 
@@ -106,7 +106,7 @@ fn verify_cert(cert: &[u8], provider_pk: &[u8; 32]) -> Option<DnscryptCert> {
         .as_secs();
     if now > 1700000000
         && (now < ts_start as u64 || now > ts_end as u64) {
-            println!(
+            tracing::info!(
                 "[DNS] Certificate expired or not yet valid (now: {}, start: {}, end: {})",
                 now, ts_start, ts_end
             );
@@ -287,14 +287,14 @@ async fn send_dns_query(
             Ok(resp) => {
                 let is_dnscrypt = resp.len() >= 8 && resp[0..8] == [0x72, 0x36, 0x66, 0x6e, 0x76, 0x57, 0x6a, 0x38];
                 if !is_dnscrypt && resp.len() >= 3 && (resp[2] & 0x02 != 0) {
-                    println!("[DNS] UDP response truncated. Retrying over TCP...");
+                    tracing::debug!("UDP response truncated. Retrying over TCP...");
                     send_dns_query_tcp(resolver_ip, query).await
                 } else {
                     Ok(resp)
                 }
             }
             Err(e) => {
-                println!("[DNS] UDP query failed: {}. Retrying over TCP...", e);
+                tracing::debug!("UDP query failed: {}. Retrying over TCP...", e);
                 send_dns_query_tcp(resolver_ip, query).await
             }
         }
@@ -393,7 +393,7 @@ fn parse_txt_response(data: &[u8]) -> Vec<Vec<u8>> {
 async fn establish_dnscrypt_session() -> Result<DnscryptClientState, String> {
     let mut errors = Vec::new();
     for resolver in HARDCODED_RESOLVERS {
-        println!(
+        tracing::info!(
             "[DNS] Fetching DNSCrypt certificate from provider {} at {}...",
             resolver.provider_name, resolver.ip
         );
@@ -414,7 +414,7 @@ async fn establish_dnscrypt_session() -> Result<DnscryptClientState, String> {
                     }
                 }
                 if let Some(cert) = best_cert {
-                    println!(
+                    tracing::info!(
                         "[DNS] Verified DNSCrypt cert (serial: {}) from resolver {}",
                         cert.serial, resolver.ip
                     );
@@ -458,13 +458,13 @@ async fn establish_dnscrypt_session() -> Result<DnscryptClientState, String> {
                     });
                 } else {
                     let err_msg = format!("No valid certs found for resolver {}", resolver.ip);
-                    println!("[DNS] {}", err_msg);
+                    tracing::debug!("{}", err_msg);
                     errors.push(err_msg);
                 }
             }
             Err(e) => {
                 let err_msg = format!("Failed to query cert from {}: {}", resolver.ip, e);
-                println!("[DNS] {}", err_msg);
+                tracing::debug!("{}", err_msg);
                 errors.push(err_msg);
             }
         }
@@ -496,7 +496,7 @@ impl CustomDnscryptResolver {
             if now < session.ts_end as u64 {
                 return Ok(session.clone());
             }
-            println!("[DNS] Cached DNSCrypt certificate expired, establishing a new session...");
+            tracing::debug!("Cached DNSCrypt certificate expired, establishing a new session...");
         }
 
         let new_session = establish_dnscrypt_session().await?;
@@ -517,23 +517,23 @@ impl Resolve for CustomDnscryptResolver {
         let resolver = self.clone_resolver();
 
         Box::pin(async move {
-            println!("[DNS] Resolving {} via DNSCrypt...", domain);
+            tracing::debug!("Resolving {} via DNSCrypt...", domain);
             let session = resolver
                 .get_or_establish_session()
                 .await
                 .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
-                    println!("[DNS] Failed to get/establish DNSCrypt session: {:?}", e);
+                    tracing::debug!("Failed to get/establish DNSCrypt session: {:?}", e);
                     Box::new(std::io::Error::other(e))
                 })?;
 
             let ip = resolve_domain_via_dnscrypt_session(&session, &domain)
                 .await
                 .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
-                    println!("[DNS] DNSCrypt resolution failed: {:?}", e);
+                    tracing::debug!("DNSCrypt resolution failed: {:?}", e);
                     Box::new(std::io::Error::new(std::io::ErrorKind::NotFound, e))
                 })?;
 
-            println!("[DNS] Resolved {} -> {}", domain, ip);
+            tracing::debug!("Resolved {} -> {}", domain, ip);
             let addrs: Box<dyn Iterator<Item = SocketAddr> + Send> =
                 Box::new(std::iter::once(SocketAddr::new(ip, 0)));
             Ok(addrs)

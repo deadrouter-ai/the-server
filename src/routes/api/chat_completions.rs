@@ -229,8 +229,11 @@ pub async fn handle_secure_openai_proxy(
 
     match proxy_req.preference.as_deref() {
         Some("privacy_rating") => available_providers.sort_by_key(|b| std::cmp::Reverse(b.privacy_rating)),
+        None if proxy_req.provider.is_some() => {
+            // Keep the explicitly requested provider order
+        }
         _ => {
-            // Secure shuffle using FIPS-validated aws-lc-rs
+            // Shuffle models if the user did not specify a provider order
             available_providers.sort_by_cached_key(|_| {
                 let mut bytes = [0u8; 4];
                 aws_lc_rs::rand::fill(&mut bytes).unwrap();
@@ -310,7 +313,7 @@ pub async fn handle_secure_openai_proxy(
                 return (StatusCode::OK, headers, body);
             }
             Err(e) => {
-                println!("[ERROR] Provider '{}' failed: {}", provider.id, e);
+                tracing::error!("Provider '{}' failed: {}", provider.id, e);
                 
                 let mut dyn_state = provider.dynamic_state.write().await;
                 
@@ -358,7 +361,7 @@ pub async fn handle_secure_openai_proxy(
         }
     }
 
-    println!("[WARN] All available providers failed for chat {}", chat_id);
+    tracing::warn!("All available providers failed for chat {}", chat_id);
     json_error(
         StatusCode::BAD_GATEWAY,
         &format!("All available AI providers failed to process the request. Last failure: {}", last_error)

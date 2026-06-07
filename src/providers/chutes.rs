@@ -491,7 +491,7 @@ pub async fn verify_chutes_tee_evidence(
             }) {
             Some(e) => e,
             None => {
-                eprintln!("WARNING: No TEE evidence found for instance {}", expected_inst.instance_id);
+                tracing::warn!("WARNING: No TEE evidence found for instance {}", expected_inst.instance_id);
                 continue;
             }
         };
@@ -504,7 +504,7 @@ pub async fn verify_chutes_tee_evidence(
         let quote_b64 = match inst_evidence.get("quote").and_then(|v| v.as_str()) {
             Some(q) => q,
             None => {
-                eprintln!("WARNING: Missing Intel TDX quote for instance {}", expected_inst.instance_id);
+                tracing::warn!("WARNING: Missing Intel TDX quote for instance {}", expected_inst.instance_id);
                 continue;
             }
         };
@@ -512,7 +512,7 @@ pub async fn verify_chutes_tee_evidence(
         let quote_bytes = match Base64::decode_vec(quote_b64) {
             Ok(b) => b,
             Err(_) => {
-                eprintln!("WARNING: Invalid base64 in TDX quote for instance {}", expected_inst.instance_id);
+                tracing::warn!("WARNING: Invalid base64 in TDX quote for instance {}", expected_inst.instance_id);
                 continue;
             }
         };
@@ -609,28 +609,21 @@ pub async fn call_chutes_ai(
     let models_base = "https://llm.chutes.ai";
     let current_ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
-    let (upstream_model_name, price_input_1m, price_output_1m) = {
-        let state_read = provider.dynamic_state.read().await;
-        if let Some(info) = state_read.dynamic_models.get(&frontend_requested_model) {
-            (info.upstream_model_name.clone(), info.price_input_1m, info.price_output_1m)
-        } else {
-            return Err(format!("Model {} not configured", frontend_requested_model));
-        }
-    };
+    let model_info = crate::utils::models::get_dynamic_model_info(provider, &frontend_requested_model).await?;
 
     let chute_id = {
         let state_read = provider.dynamic_state.read().await;
-        state_read.chutes_e2ee.chute_id_cache.get(&upstream_model_name)
+        state_read.chutes_e2ee.chute_id_cache.get(&model_info.upstream_model_name)
             .filter(|(_, exp)| current_ts < *exp)
             .map(|(id, _)| id.clone())
     };
     let chute_id = match chute_id {
         Some(id) => id,
         None => {
-            let resolved = resolve_chute_id(&state.http_client, models_base, &provider.api_key, &upstream_model_name).await?;
+            let resolved = resolve_chute_id(&state.http_client, models_base, &provider.api_key, &model_info.upstream_model_name).await?;
             let mut state_write = provider.dynamic_state.write().await;
             state_write.chutes_e2ee.chute_id_cache.insert(
-                upstream_model_name.clone(),
+                model_info.upstream_model_name.clone(),
                 (resolved.clone(), current_ts + 300),
             );
             resolved
@@ -711,7 +704,7 @@ pub async fn call_chutes_ai(
             continue;
         }
 
-        proxy_req.model = upstream_model_name.clone();
+        proxy_req.model = model_info.upstream_model_name.clone();
         let payload = serde_json::to_value(&proxy_req).map_err(|e| e.to_string())?;
         let e2ee_req = build_e2ee_request(&instance.e2e_pubkey, &payload)?;
 
@@ -753,7 +746,7 @@ pub async fn call_chutes_ai(
         return process_chutes_response(
             upstream_resp, proxy_req.stream, client_wants_usage, chat_id,
             frontend_requested_model, provider.id.clone(),
-            price_input_1m, price_output_1m,
+            model_info.price_input_1m, model_info.price_output_1m,
             e2ee_req.response_sk,
             e2ee_session,
         ).await;

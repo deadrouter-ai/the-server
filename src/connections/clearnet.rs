@@ -94,7 +94,7 @@ fn spawn_https_listener(listener: TcpListener, acceptor: TlsAcceptor, state: Arc
             let (tcp_stream, peer) = match listener.accept().await {
                 Ok(c) => c,
                 Err(e) => {
-                    eprintln!("[tcp]  accept error: {}", e);
+                    tracing::error!("[tcp]  accept error: {}", e);
                     continue;
                 }
             };
@@ -106,7 +106,7 @@ fn spawn_https_listener(listener: TcpListener, acceptor: TlsAcceptor, state: Arc
                     Err(e) => {
                         let err_str = e.to_string();
                         if !err_str.contains("InvalidContentType") {
-                            eprintln!("[tls]  handshake failed ({}): {}", peer, e);
+                            tracing::error!("[tls]  handshake failed ({}): {}", peer, e);
                         }
                         return;
                     }
@@ -123,7 +123,7 @@ fn spawn_https_listener(listener: TcpListener, acceptor: TlsAcceptor, state: Arc
                 .serve_connection(io, svc)
                 .await
                 {
-                    eprintln!("[http] connection error ({}): {}", peer, e);
+                    tracing::error!("[http] connection error ({}): {}", peer, e);
                 }
             });
         }
@@ -140,7 +140,7 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
                 let mut h3_server = match h3::server::Connection::new(h3_conn).await {
                     Ok(c) => c,
                     Err(e) => {
-                        eprintln!("[h3]   connection setup failed: {}", e);
+                        tracing::error!("[h3]   connection setup failed: {}", e);
                         return;
                     }
                 };
@@ -193,7 +193,7 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
                                 let resp = builder.body(()).unwrap();
 
                                 if let Err(e) = stream.send_response(resp).await {
-                                    eprintln!("[h3]   send_response error: {}", e);
+                                    tracing::error!("[h3]   send_response error: {}", e);
                                     return;
                                 }
 
@@ -203,12 +203,12 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
                                         Ok(frame) => {
                                             if let Some(chunk) = frame.data_ref()
                                                 && let Err(e) = stream.send_data(chunk.clone()).await {
-                                                    eprintln!("[h3]   send_data error: {}", e);
+                                                    tracing::error!("[h3]   send_data error: {}", e);
                                                     return;
                                                 }
                                         }
                                         Err(e) => {
-                                            eprintln!("[h3]   stream frame error: {:?}", e);
+                                            tracing::error!("[h3]   stream frame error: {:?}", e);
                                             break;
                                         }
                                     }
@@ -222,7 +222,7 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
                             if !err_str.contains("application error")
                                 && !err_str.contains("ConnectionError")
                             {
-                                eprintln!("[h3]   accept error: {}", e);
+                                tracing::error!("[h3]   accept error: {}", e);
                             }
                             break;
                         }
@@ -241,7 +241,7 @@ fn spawn_http(listener: TcpListener, state: Arc<AppState>) {
             let (stream, _peer) = match listener.accept().await {
                 Ok(c) => c,
                 Err(e) => {
-                    eprintln!("[http] accept error: {}", e);
+                    tracing::error!("[http] accept error: {}", e);
                     continue;
                 }
             };
@@ -258,7 +258,7 @@ fn spawn_http(listener: TcpListener, state: Arc<AppState>) {
                         .serve_connection(io, svc)
                         .await
                         && !e.is_incomplete_message() {
-                            eprintln!("[http] dev connection error: {}", e);
+                            tracing::error!("[http] dev connection error: {}", e);
                         }
                 } else {
                     // Redirect to HTTPS in production
@@ -267,7 +267,7 @@ fn spawn_http(listener: TcpListener, state: Arc<AppState>) {
                         .serve_connection(io, svc)
                         .await
                         && !e.is_incomplete_message() {
-                            eprintln!("[http] redirect connection error: {}", e);
+                            tracing::error!("[http] redirect connection error: {}", e);
                         }
                 }
             });
@@ -277,7 +277,7 @@ fn spawn_http(listener: TcpListener, state: Arc<AppState>) {
 
 pub async fn start_all(state: Arc<AppState>, tls_port: u16, http_port: u16) {
     let certs = generate_self_signed(vec!["localhost".to_string()]);
-    println!("[tls]  Self-signed certificate generated (ECDSA P-384)");
+    tracing::info!("[tls]  Self-signed certificate generated (ECDSA P-384)");
 
     let provider = Arc::new(hardened_crypto_provider());
 
@@ -295,7 +295,7 @@ pub async fn start_all(state: Arc<AppState>, tls_port: u16, http_port: u16) {
     let https_listener = TcpListener::bind(format!("0.0.0.0:{}", tls_port))
         .await
         .expect("bind https port");
-    println!(
+    tracing::info!(
         "[tcp]  Listening on 0.0.0.0:{}  (HTTPS — HTTP/1.1 + HTTP/2)",
         tls_port
     );
@@ -319,7 +319,7 @@ pub async fn start_all(state: Arc<AppState>, tls_port: u16, http_port: u16) {
         .start()
         .expect("QUIC server start");
 
-    println!(
+    tracing::info!(
         "[quic] Listening on 0.0.0.0:{}  (HTTP/3 over QUIC)",
         tls_port
     );
@@ -330,7 +330,7 @@ pub async fn start_all(state: Arc<AppState>, tls_port: u16, http_port: u16) {
     let http_listener = TcpListener::bind(format!("0.0.0.0:{}", http_port))
         .await
         .expect("bind http port");
-    println!(
+    tracing::info!(
         "[http] Listening on 0.0.0.0:{}  (plaintext → API / HTTPS redirect)",
         http_port
     );

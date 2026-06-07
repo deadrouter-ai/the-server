@@ -47,8 +47,8 @@ pub fn parse_models(data_array: &[Value]) -> HashMap<String, DynamicModelInfo> {
         // Deduplication based on max cost
         if let Some(existing) = models.get(&frontend_name) {
             let existing_cost = existing.price_input_1m + existing.price_output_1m;
-            if cost <= existing_cost {
-                continue; // Keep the existing, more expensive model
+            if cost >= existing_cost {
+                continue; // Keep the existing cheaper model
             }
         }
 
@@ -82,24 +82,17 @@ pub async fn call_redpill_ai(
     frontend_requested_model: String,
     e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
-    let (upstream_model_name, price_input, price_output) = {
-        let state_read = provider.dynamic_state.read().await;
-        if let Some(info) = state_read.dynamic_models.get(&frontend_requested_model) {
-            (info.upstream_model_name.clone(), info.price_input_1m, info.price_output_1m)
-        } else {
-            return Err(format!("Model {} not dynamically configured", frontend_requested_model));
-        }
-    };
+    let model_info = crate::utils::models::get_dynamic_model_info(provider, &frontend_requested_model).await?;
 
-    crate::utils::forward_to_standard_provider(
+    crate::utils::http::forward_to_standard_provider(
         state,
         provider,
         proxy_req,
         chat_id,
         frontend_requested_model,
-        upstream_model_name,
-        price_input,
-        price_output,
+        model_info.upstream_model_name,
+        model_info.price_input_1m,
+        model_info.price_output_1m,
         e2ee_session
     ).await
 }

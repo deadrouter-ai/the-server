@@ -5065,6 +5065,8 @@ dependencies = [
  "tokio-util",
  "tor-cell",
  "tor-hsservice",
+ "tracing",
+ "tracing-subscriber",
  "webpki-roots 1.0.7",
  "x25519-dalek",
  "x509-parser",

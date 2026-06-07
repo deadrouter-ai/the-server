@@ -18,7 +18,7 @@ use crate::{
 };
 
 pub async fn start(state: Arc<AppState>) {
-    println!("[tor]  Bootstrapping Tor client...");
+    tracing::info!("[tor]  Bootstrapping Tor client...");
 
     let tor_state_dir = tempfile::tempdir_in("/dev/shm").expect("failed to create ephemeral tor state dir in RAM");
     let temp_path_str = tor_state_dir.path().to_string_lossy().into_owned();
@@ -38,13 +38,13 @@ pub async fn start(state: Arc<AppState>) {
     let tor_client = match TorClient::create_bootstrapped(tor_config).await {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("[tor]  FAILED to bootstrap Tor client: {}", e);
-            eprintln!("[tor]  Onion service will NOT be available.");
+            tracing::error!("[tor]  FAILED to bootstrap Tor client: {}", e);
+            tracing::error!("[tor]  Onion service will NOT be available.");
             return;
         }
     };
 
-    println!("[tor]  Tor client bootstrapped successfully.");
+    tracing::info!("[tor]  Tor client bootstrapped successfully.");
 
     let mut rand_bytes = [0u8; 16];
     aws_lc_rs::rand::fill(&mut rand_bytes).unwrap();
@@ -52,7 +52,7 @@ pub async fn start(state: Arc<AppState>) {
     let mut hex_buf = [0u8; 32];
     let random_nickname = base16ct::lower::encode_str(&rand_bytes, &mut hex_buf).expect("base16ct encoding failed");
 
-    println!("[tor]  Generated random enclave nickname: {}", random_nickname);
+    tracing::info!("[tor]  Generated random enclave nickname: {}", random_nickname);
 
     let onion_config = OnionServiceConfigBuilder::default()
         .nickname(random_nickname.parse().expect("valid nickname"))
@@ -62,18 +62,18 @@ pub async fn start(state: Arc<AppState>) {
     let (onion_svc, rend_requests) = match tor_client.launch_onion_service(onion_config) {
         Ok(Some(result)) => result,
         Ok(None) => {
-            eprintln!("[tor]  Onion service is disabled in config.");
+            tracing::error!("[tor]  Onion service is disabled in config.");
             return;
         }
         Err(e) => {
-            eprintln!("[tor]  Failed to launch onion service: {}", e);
+            tracing::error!("[tor]  Failed to launch onion service: {}", e);
             return;
         }
     };
 
     let onion_domain = if let Some(addr) = onion_svc.onion_address() {
         let full_addr = addr.display_unredacted().to_string();
-        println!("[tor]  Onion service active: http://{} and https://{}", full_addr, full_addr);
+        tracing::info!("[tor]  Onion service active: http://{} and https://{}", full_addr, full_addr);
         full_addr
     } else {
         // Server must panic without onion support.
@@ -200,7 +200,7 @@ pub async fn start(state: Arc<AppState>) {
                     let tls_stream = match tls_acceptor_clone.accept(data_stream).await {
                         Ok(s) => s,
                         Err(e) => {
-                            eprintln!("[tor-tls] handshake failed: {}", e);
+                            tracing::error!("[tor-tls] handshake failed: {}", e);
                             return;
                         }
                     };

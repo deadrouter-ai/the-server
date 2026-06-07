@@ -776,16 +776,9 @@ pub async fn call_near_ai(
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
     if proxy_req.stream { proxy_req.stream_options = Some(StreamOptions { include_usage: true }); }
 
-    let (upstream_model_name, price_input, price_output, direct_endpoint) = {
-        let state_read = provider.dynamic_state.read().await;
-        if let Some(info) = state_read.dynamic_models.get(&frontend_requested_model) {
-            (info.upstream_model_name.clone(), info.price_input_1m, info.price_output_1m, info.direct_endpoint.clone())
-        } else {
-            return Err(format!("Model {} not dynamically configured", frontend_requested_model));
-        }
-    };
+    let model_info = crate::utils::models::get_dynamic_model_info(provider, &frontend_requested_model).await?;
 
-    let direct_url = direct_endpoint.unwrap_or_else(|| get_direct_endpoint(&frontend_requested_model));
+    let direct_url = model_info.direct_endpoint.clone().unwrap_or_else(|| get_direct_endpoint(&frontend_requested_model));
     let domain = direct_url.trim_start_matches("https://").trim_end_matches('/').to_string();
 
     let current_ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
@@ -838,7 +831,7 @@ pub async fn call_near_ai(
     // Extraction handled safely above during routing phase
 
     // E2EE Encryption
-    proxy_req.model = upstream_model_name;
+    proxy_req.model = model_info.upstream_model_name.clone();
     
     let mut upstream_session_secret = Zeroizing::new([0u8; 32]);
     let client_pub_hex = if let Some(pubkey) = nearai_passthrough_pubkey {
@@ -891,8 +884,8 @@ pub async fn call_near_ai(
         chat_id,
         frontend_requested_model, 
         provider.id.clone(),
-        price_input,
-        price_output,
+        model_info.price_input_1m,
+        model_info.price_output_1m,
         upstream_session_secret,
         e2ee_session,
         skip_decryption,

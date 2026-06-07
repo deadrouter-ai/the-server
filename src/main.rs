@@ -15,6 +15,7 @@
 
 use std::sync::Arc;
 use std::collections::HashMap;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod providers;
 pub mod utils;
@@ -40,8 +41,21 @@ async fn main() {
     #[cfg(feature = "development")]
     let _ = dotenvy::dotenv();
 
+    let is_dev = cfg!(feature = "development");
+    
+    let env_filter = if is_dev {
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+    } else {
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("warn"))
+    };
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer().with_target(false))
+        .with(env_filter)
+        .init();
+
     if let Ok(hash) = std::env::var("LOADER_PAYLOAD_HASH") {
-        println!("[info] Payload measurement: {}", hash);
+        tracing::info!("Payload measurement: {}", hash);
     }
 
     let is_dev = cfg!(feature = "development");
@@ -49,7 +63,7 @@ async fn main() {
     let http_port = if is_dev { 5001 } else { 80 };
 
     if is_dev {
-        println!("[info] Running in DEVELOPMENT mode.");
+        tracing::info!("Running in DEVELOPMENT mode.");
     }
 
     // ---- Shared state initialization ----
@@ -60,7 +74,7 @@ async fn main() {
     let near_ai_key = if is_dev {
         std::env::var("NEAR_AI_KEY").unwrap_or_default()
     } else {
-        println!("[WARN] Production mode active: API Keys defer to external system. Using empty placeholders.");
+        tracing::warn!("Production mode active: API Keys defer to external system. Using empty placeholders.");
         String::new()
     };
 
@@ -228,14 +242,14 @@ async fn main() {
             tokio::time::sleep(std::time::Duration::from_secs(300)).await; // 5 minutes
             let mut secrets = ticket_secrets_clone.write().await;
             secrets.rotate();
-            println!("[INFO] E2EE Ticket Master Secret rotated.");
+            tracing::info!("E2EE Ticket Master Secret rotated.");
         }
     });
 
     let tinfoil_client = match tinfoil::Client::new_default().await {
         Ok(c) => c,
         Err(e) => {
-            println!("[WARN] Failed to initialize Tinfoil client securely: {}", e);
+            tracing::warn!("Failed to initialize Tinfoil client securely: {}", e);
             // Fallback for dev if TINFOIL_API_KEY is not set or auth fails
             tinfoil::Client::new("", "", "").await.unwrap_or_else(|_| panic!("Failed to init fallback Tinfoil client"))
         }
@@ -259,9 +273,9 @@ async fn main() {
         tokio::spawn(async move {
             loop {
                 if let Err(e) = fetch_and_update_prices(&state_clone, &provider_clone).await {
-                    println!("[WARN] Failed to dynamically update prices for provider '{}': {}", provider_clone.id, e);
+                    tracing::warn!("Failed to dynamically update prices for provider '{}': {}", provider_clone.id, e);
                 } else {
-                    println!("[INFO] Successfully updated dynamic prices for provider '{}'", provider_clone.id);
+                    tracing::info!("Successfully updated dynamic prices for provider '{}'", provider_clone.id);
                 }
                 // Check and update pricing hourly
                 tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
@@ -276,10 +290,10 @@ async fn main() {
     if !is_dev {
         connections::onion::start(state.clone()).await;
     } else {
-        println!("[skip] Onion service disabled in development mode.");
+        tracing::info!("Onion service disabled in development mode.");
     }
 
-    println!("\n[ready] All listeners active.\n");
+    tracing::info!("All listeners active.");
 
     // Keep the main task alive forever
     std::future::pending::<()>().await;

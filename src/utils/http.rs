@@ -56,47 +56,49 @@ pub async fn forward_to_standard_provider(
     let provider_id = provider.id.clone();
     
     if proxy_req.stream {
-        let mut stream = resp.bytes_stream();
+        let stream_err_mapper = resp.bytes_stream().map(|res| res.map_err(std::io::Error::other));
+        let mut stream_reader = tokio::io::BufReader::new(tokio_util::io::StreamReader::new(stream_err_mapper));
+        
         let mapped_stream = async_stream::stream! {
             let mut total_in = 0.0;
             let mut total_out = 0.0;
+            let mut line = String::new();
             
-            while let Some(chunk_res) = stream.next().await {
-                match chunk_res {
-                    Ok(chunk) => {
-                        let text = String::from_utf8_lossy(&chunk);
-                        let mut final_out = String::new();
-
-                        for line in text.lines() {
-                            if line.starts_with("data: ") {
-                                let data_str = line.trim_start_matches("data: ").trim();
-                                if data_str == "[DONE]" {
-                                    final_out.push_str("data: [DONE]\n\n");
-                                    continue;
-                                }
-
-                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(data_str) {
-                                    let sanitized = crate::utils::response::sanitize_and_spoof_response(
-                                        json, &chat_id, &frontend_requested_model, &provider_id,
-                                        price_input, price_output,
-                                        &mut total_in, &mut total_out,
-                                        None
-                                    );
-                                    let new_line = serde_json::to_string(&sanitized).unwrap_or_default();
-                                    final_out.push_str(&format!("data: {}\n\n", new_line));
-                                } else {
-                                    final_out.push_str(&format!("data: {}\n\n", data_str));
-                                }
-                            } else {
-                                final_out.push_str(&format!("{}\n", line));
-                            }
-                        }
-                        if !final_out.is_empty() {
-                            yield Ok::<_, Infallible>(Frame::data(Bytes::from(final_out)));
-                        }
-                    }
-                    Err(_) => break,
+            use tokio::io::AsyncBufReadExt;
+            while let Ok(n) = stream_reader.read_line(&mut line).await {
+                if n == 0 { break; }
+                
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    line.clear();
+                    continue;
                 }
+
+                if let Some(stripped) = trimmed.strip_prefix("data: ") {
+                    let data_str = stripped.trim();
+                    if data_str == "[DONE]" {
+                        yield Ok::<_, Infallible>(Frame::data(Bytes::from("data: [DONE]\n\n")));
+                        line.clear();
+                        continue;
+                    }
+
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(data_str) {
+                        let sanitized = crate::utils::response::sanitize_and_spoof_response(
+                            json, &chat_id, &frontend_requested_model, &provider_id,
+                            price_input, price_output,
+                            &mut total_in, &mut total_out,
+                            None
+                        );
+                        let new_line = serde_json::to_string(&sanitized).unwrap_or_default();
+                        yield Ok::<_, Infallible>(Frame::data(Bytes::from(format!("data: {}\n\n", new_line))));
+                    } else {
+                        yield Ok::<_, Infallible>(Frame::data(Bytes::from(format!("data: {}\n\n", data_str))));
+                    }
+                } else {
+                    yield Ok::<_, Infallible>(Frame::data(Bytes::from(format!("{}\n", trimmed))));
+                }
+                
+                line.clear();
             }
         };
         Ok(BodyExt::boxed(StreamBody::new(crate::utils::crypto::wrap_stream_with_timing_padding(Box::pin(mapped_stream), e2ee_session))))

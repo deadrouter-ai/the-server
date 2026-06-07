@@ -96,19 +96,12 @@ pub async fn call_tinfoil(
     e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
     
-    let (upstream_model_name, price_input, price_output) = {
-        let state_read = provider.dynamic_state.read().await;
-        if let Some(info) = state_read.dynamic_models.get(&frontend_requested_model) {
-            (info.upstream_model_name.clone(), info.price_input_1m, info.price_output_1m)
-        } else {
-            return Err(format!("Model {} not configured", frontend_requested_model));
-        }
-    };
+    let model_info = crate::utils::models::get_dynamic_model_info(provider, &frontend_requested_model).await?;
 
     let client = &state.tinfoil_client;
 
     let mut proxy_json = serde_json::to_value(&proxy_req).map_err(|e| e.to_string())?;
-    proxy_json["model"] = Value::String(upstream_model_name.clone());
+    proxy_json["model"] = Value::String(model_info.upstream_model_name.clone());
     
     if proxy_req.stream {
         proxy_json["stream_options"] = serde_json::json!({"include_usage": true});
@@ -144,7 +137,7 @@ pub async fn call_tinfoil(
                                             
                         let sanitized_json = sanitize_and_spoof_response(
                             json, &chat_id, &frontend_requested_model, &provider_id,
-                            price_input, price_output,
+                            model_info.price_input_1m, model_info.price_output_1m,
                             &mut total_input_tokens, &mut total_output_tokens,
                             None
                         );
@@ -184,7 +177,7 @@ pub async fn call_tinfoil(
         
         let mut sanitized_json = sanitize_and_spoof_response(
             json_resp, &chat_id, &frontend_requested_model, &provider_id,
-            price_input, price_output,
+            model_info.price_input_1m, model_info.price_output_1m,
             &mut in_tok, &mut out_tok,
             ratchet.as_mut()
         );
