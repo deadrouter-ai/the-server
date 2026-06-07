@@ -66,6 +66,10 @@ async fn main() {
 
     let near_ai = ProviderConfig {
         id: "near-ai".to_string(),
+        name: "Near AI".to_string(),
+        description: "A powerhouse for decentralized, zero-trust inference. Absolute cryptographically verifiable privacy combined with blazing-fast routing.".to_string(),
+        legal_location: "US".to_string(),
+        data_processing_location: "US".to_string(),
         location: "us".to_string(),
         endpoint: "https://cloud-api.near.ai/v1/chat/completions".to_string(),
         api_key: near_ai_key,
@@ -86,6 +90,10 @@ async fn main() {
 
     let chutes_ai = ProviderConfig {
         id: "chutes".to_string(),
+        name: "Chutes".to_string(),
+        description: "Pioneers of E2EE payload routing. Chutes allows you to encrypt prompts directly to their hardware enclaves, blinding us completely.".to_string(),
+        legal_location: "US".to_string(),
+        data_processing_location: "US".to_string(),
         location: "us".to_string(),
         endpoint: "https://llm.chutes.ai/v1/chat/completions".to_string(),
         api_key: chutes_key,
@@ -106,6 +114,10 @@ async fn main() {
 
     let redpill_ai = ProviderConfig {
         id: "redpill".to_string(),
+        name: "RedPill".to_string(),
+        description: "A decentralized infrastructure layer routing prompts anonymously across diverse, hardened hardware pools with dynamic failovers.".to_string(),
+        legal_location: "US".to_string(),
+        data_processing_location: "US".to_string(),
         location: "us".to_string(),
         endpoint: "https://api.redpill.ai/v1/chat/completions".to_string(),
         api_key: redpill_key,
@@ -127,6 +139,10 @@ async fn main() {
 
     let infomaniak_ai = ProviderConfig {
         id: "infomaniak".to_string(),
+        name: "Infomaniak".to_string(),
+        description: "The Swiss fortress. While they lack hardware-level TEEs, they operate under the strictest legal privacy frameworks on the planet.".to_string(),
+        legal_location: "CH".to_string(),
+        data_processing_location: "CH".to_string(),
         location: "ch".to_string(),
         endpoint: format!("https://api.infomaniak.com/2/ai/{}/openai/v1/chat/completions", infomaniak_product_id),
         api_key: infomaniak_key,
@@ -147,6 +163,10 @@ async fn main() {
 
     let tinfoil_ai = ProviderConfig {
         id: "tinfoil".to_string(),
+        name: "Tinfoil".to_string(),
+        description: "Privacy-first compute networks with attestation guarantees. Direct, shielded access to state-of-the-art models within AMD SEV enclaves.".to_string(),
+        legal_location: "US".to_string(),
+        data_processing_location: "US".to_string(),
         location: "us".to_string(),
         endpoint: "https://inference.tinfoil.sh/v1/chat/completions".to_string(),
         api_key: tinfoil_key,

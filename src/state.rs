@@ -101,6 +101,10 @@ pub struct ProviderDynamicState {
 #[derive(Debug)]
 pub struct ProviderConfig {
     pub id: String,
+    pub name: String,
+    pub description: String,
+    pub legal_location: String,
+    pub data_processing_location: String,
     pub location: String,
     pub endpoint: String,
     pub api_key: String,

@@ -1,0 +1,221 @@
+use askama::Template;
+use hyper::StatusCode;
+use crate::{AppState, IncomingRequest};
+
+#[derive(Clone)]
+#[allow(dead_code)]
+pub struct RenderProviderItem {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub logo_letter: String,
+    pub logo_url: Option<String>,
+    pub privacy_rating: u8,
+    pub zdr: bool,
+    pub zds: bool,
+    pub tee: bool,
+    pub legal_location: String,
+    pub legal_flag: String,
+    pub data_processing_location: String,
+    pub processing_flag: String,
+}
+
+#[derive(Template)]
+#[template(path = "providers.html")]
+pub struct ProvidersTemplate {
+    pub csp_nonce: String,
+    pub onion_site: String,
+    pub providers: Vec<RenderProviderItem>,
+    pub search_query: String,
+    pub filter_zdr: bool,
+    pub filter_zds: bool,
+    pub filter_tee: bool,
+}
+
+fn get_flag(country_code: &str) -> String {
+    match country_code.to_uppercase().as_str() {
+        "CH" => "🇨🇭".to_string(),
+        "US" => "🇺🇸".to_string(),
+        "DE" => "🇩🇪".to_string(),
+        "FR" => "🇫🇷".to_string(),
+        "GB" => "🇬🇧".to_string(),
+        _ => "🌐".to_string(),
+    }
+}
+
+/// Decodes URL percent-encoding and `+` → space substitution.
+fn url_decode(s: &str) -> String {
+    let mut bytes = Vec::with_capacity(s.len());
+    let mut chars = s.as_bytes().iter();
+    while let Some(&b) = chars.next() {
+        if b == b'%' {
+            let h1 = chars.next();
+            let h2 = chars.next();
+            if let (Some(&c1), Some(&c2)) = (h1, h2) {
+                let hex_str = [c1, c2];
+                if let Ok(hex_s) = std::str::from_utf8(&hex_str) {
+                    if let Ok(val) = u8::from_str_radix(hex_s, 16) {
+                        bytes.push(val);
+                    } else {
+                        bytes.push(b'%');
+                        bytes.push(c1);
+                        bytes.push(c2);
+                    }
+                } else {
+                    bytes.push(b'%');
+                    bytes.push(c1);
+                    bytes.push(c2);
+                }
+            } else {
+                bytes.push(b'%');
+                if let Some(&c1) = h1 { bytes.push(c1); }
+                if let Some(&c2) = h2 { bytes.push(c2); }
+            }
+        } else if b == b'+' {
+            bytes.push(b' ');
+        } else {
+            bytes.push(b);
+        }
+    }
+    String::from_utf8_lossy(&bytes).into_owned()
+}
+
+pub async fn handle_providers_page(
+    state: &AppState,
+    req: &IncomingRequest,
+) -> (StatusCode, Vec<(&'static str, String)>, String) {
+    // 1. Parse search & filter query from URI
+    let mut search_query = String::new();
+    let mut filter_zdr = false;
+    let mut filter_zds = false;
+    let mut filter_tee = false;
+
+    if let Some(query) = req.uri.query() {
+        for pair in query.split('&') {
+            if let Some((k, v)) = pair.split_once('=') {
+                if k == "q" {
+                    search_query = url_decode(v).trim().to_lowercase();
+                } else if k == "zdr" && v == "1" {
+                    filter_zdr = true;
+                } else if k == "zds" && v == "1" {
+                    filter_zds = true;
+                } else if k == "tee" && v == "1" {
+                    filter_tee = true;
+                }
+            }
+        }
+    }
+
+    // 2. Fetch and filter providers
+    let mut provider_items = Vec::new();
+
+    for provider in state.providers.values() {
+        // Apply search query filter
+        if !search_query.is_empty() {
+            let name_lower = provider.name.to_lowercase();
+            let id_lower = provider.id.to_lowercase();
+            if !name_lower.contains(&search_query) && !id_lower.contains(&search_query) {
+                continue;
+            }
+        }
+
+        // Apply toggle filters
+        if filter_zdr && !provider.zdr { continue; }
+        if filter_zds && !provider.zds { continue; }
+        if filter_tee && !provider.tee { continue; }
+
+        let logo_letter = provider.name
+            .chars()
+            .find(|c| c.is_alphanumeric())
+            .unwrap_or('P')
+            .to_string()
+            .to_uppercase();
+
+        let logo_url = if let Ok(entries) = std::fs::read_dir("static/providers-logos") {
+            let mut found = None;
+            for entry in entries.flatten() {
+                if let Some(name) = entry.file_name().to_str() {
+                    let prefix = format!("{}.", provider.id);
+                    if name.to_lowercase().starts_with(&prefix) {
+                        found = Some(format!("/providers-logos/{}", name));
+                        break;
+                    }
+                }
+            }
+            found
+        } else {
+            None
+        };
+
+        let legal_flag = get_flag(&provider.legal_location);
+        let processing_flag = get_flag(&provider.data_processing_location);
+
+        provider_items.push(RenderProviderItem {
+            id: provider.id.clone(),
+            name: provider.name.clone(),
+            description: provider.description.clone(),
+            logo_letter,
+            logo_url,
+            privacy_rating: provider.privacy_rating,
+            zdr: provider.zdr,
+            zds: provider.zds,
+            tee: provider.tee,
+            legal_location: provider.legal_location.to_uppercase(),
+            legal_flag,
+            data_processing_location: provider.data_processing_location.to_uppercase(),
+            processing_flag,
+        });
+    }
+
+    // Sort by name
+    provider_items.sort_by(|a, b| a.name.cmp(&b.name));
+
+    // 3. Generate a secure, 64-character random nonce for CSP
+    let mut rand_bytes = [0u8; 32];
+    aws_lc_rs::rand::fill(&mut rand_bytes).unwrap();
+
+    let mut hex_buf = [0u8; 64];
+    let nonce = base16ct::lower::encode_str(&rand_bytes, &mut hex_buf).expect("base16ct encoding failed");
+
+    // 4. Populate the Askama template
+    let onion_site = state.onion_data.read().unwrap().onion_domain.clone();
+    let template = ProvidersTemplate {
+        csp_nonce: nonce.to_string(),
+        onion_site,
+        providers: provider_items,
+        search_query,
+        filter_zdr,
+        filter_zds,
+        filter_tee,
+    };
+
+    // 5. Render the HTML
+    let html_string = match template.render() {
+        Ok(html) => html,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, vec![], format!("Render failed: {}", e)),
+    };
+
+    // 6. Construct the ultra-strict CSP string dynamically
+    let csp_string = format!(
+        "default-src 'none'; \
+         script-src 'none'; \
+         style-src 'nonce-{}'; \
+         form-action 'self'; \
+         base-uri 'none'; \
+         frame-ancestors 'none'; \
+         img-src 'self'; \
+         upgrade-insecure-requests;",
+        nonce
+    );
+
+    // 7. Build the Response with the headers
+    let headers = vec![
+        ("Content-Security-Policy", csp_string),
+        ("X-Frame-Options", "DENY".to_string()),
+        ("X-Content-Type-Options", "nosniff".to_string()),
+        ("Referrer-Policy", "no-referrer".to_string()),
+        ("Content-Type", "text/html; charset=utf-8".to_string()),
+    ];
+
+    (StatusCode::OK, headers, html_string)
+}
