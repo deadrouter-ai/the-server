@@ -107,6 +107,8 @@ pub async fn call_tinfoil(
     if proxy_req.stream {
         proxy_json["stream_options"] = serde_json::json!({"include_usage": true});
     }
+    
+    proxy_json["include_reasoning"] = Value::Bool(true);
 
     let request: CreateChatCompletionRequest = serde_json::from_value(proxy_json)
         .map_err(|e| format!("Failed to build tinfoil request: {}", e))?;
@@ -134,8 +136,7 @@ pub async fn call_tinfoil(
                 match result {
                     Ok(response) => {
                         let json = serde_json::to_value(response).unwrap();
-                        let is_usage_chunk = json.get("usage").is_some() && 
-                                            json.get("choices").and_then(|c| c.as_array()).is_none_or(|a| a.is_empty());
+                        let is_usage_chunk = json.get("usage").is_some() && json.get("choices").and_then(|c| c.as_array()).is_none_or(|a| a.is_empty());
                                             
                         let sanitized_json = sanitize_and_spoof_response(
                             json, &chat_id, &frontend_requested_model, &provider_id,

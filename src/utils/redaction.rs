@@ -30,7 +30,7 @@ fn get_ssn_regex() -> &'static Regex {
 
 fn get_openai_regex() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"\bsk-(?!ant-|rp-)[a-zA-Z0-9\-_]{32,120}\b").unwrap())
+    RE.get_or_init(|| Regex::new(r"\bsk-[a-zA-Z0-9\-_]{32,120}\b").unwrap())
 }
 
 fn get_anthropic_regex() -> &'static Regex {
@@ -120,7 +120,7 @@ impl PiiMap {
         let mut counter = 1;
         let cow = get_email_regex().replace_all(&result, |caps: &regex::Captures| {
             let original = caps[0].to_string();
-            let replacement = format!("[EMAIL_{}]", counter);
+            let replacement = format!("<REDACTED_EMAIL_{}/>", counter);
             self.map.insert(replacement.clone(), original);
             counter += 1;
             replacement
@@ -130,7 +130,7 @@ impl PiiMap {
         counter = 1;
         let cow = get_ip_regex().replace_all(&result, |caps: &regex::Captures| {
             let original = caps[0].to_string();
-            let replacement = format!("[IP_ADDRESS_{}]", counter);
+            let replacement = format!("<REDACTED_IP_ADDRESS_{}/>", counter);
             self.map.insert(replacement.clone(), original);
             counter += 1;
             replacement
@@ -140,7 +140,7 @@ impl PiiMap {
         counter = 1;
         let cow = get_cc_regex().replace_all(&result, |caps: &regex::Captures| {
             let original = caps[0].to_string();
-            let replacement = format!("[CREDIT_CARD_{}]", counter);
+            let replacement = format!("<REDACTED_CREDIT_CARD_{}/>", counter);
             self.map.insert(replacement.clone(), original);
             counter += 1;
             replacement
@@ -150,7 +150,7 @@ impl PiiMap {
         counter = 1;
         let cow = get_ssn_regex().replace_all(&result, |caps: &regex::Captures| {
             let original = caps[0].to_string();
-            let replacement = format!("[SSN_{}]", counter);
+            let replacement = format!("<REDACTED_SSN_{}/>", counter);
             self.map.insert(replacement.clone(), original);
             counter += 1;
             replacement
@@ -161,7 +161,7 @@ impl PiiMap {
         let cow = get_phone_regex().replace_all(&result, |caps: &regex::Captures| {
             let prefix = caps[1].to_string();
             let original = caps[2].to_string();
-            let replacement = format!("[PHONE_{}]", counter);
+            let replacement = format!("<REDACTED_PHONE_{}/>", counter);
             self.map.insert(replacement.clone(), original);
             counter += 1;
             format!("{}{}", prefix, replacement)
@@ -171,79 +171,79 @@ impl PiiMap {
         // ---- Non-restorable Secrets Redaction ----
         // We replace them directly and immediately zeroize the previous string buffers from memory.
 
-        let cow = get_redpill_regex().replace_all(&result, "[REDPILL_AI_KEY]");
+        let cow = get_redpill_regex().replace_all(&result, "<REDACTED_REDPILL_AI_KEY/>");
         if let std::borrow::Cow::Owned(temp) = cow {
             if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
             result = std::borrow::Cow::Owned(temp);
         }
 
-        let cow = get_nearai_regex().replace_all(&result, "[NEAR_AI_KEY]");
+        let cow = get_anthropic_regex().replace_all(&result, "<REDACTED_ANTHROPIC_KEY/>");
         if let std::borrow::Cow::Owned(temp) = cow {
             if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
             result = std::borrow::Cow::Owned(temp);
         }
 
-        let cow = get_openai_regex().replace_all(&result, "[OPENAI_KEY]");
+        let cow = get_nearai_regex().replace_all(&result, "<REDACTED_NEAR_AI_KEY/>");
         if let std::borrow::Cow::Owned(temp) = cow {
             if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
             result = std::borrow::Cow::Owned(temp);
         }
 
-        let cow = get_anthropic_regex().replace_all(&result, "[ANTHROPIC_KEY]");
+        let cow = get_openai_regex().replace_all(&result, "<REDACTED_OPENAI_KEY/>");
         if let std::borrow::Cow::Owned(temp) = cow {
             if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
             result = std::borrow::Cow::Owned(temp);
         }
 
-        let cow = get_google_regex().replace_all(&result, "[GOOGLE_API_KEY]");
+        let cow = get_google_regex().replace_all(&result, "<REDACTED_GOOGLE_API_KEY/>");
         if let std::borrow::Cow::Owned(temp) = cow {
             if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
             result = std::borrow::Cow::Owned(temp);
         }
 
-        let cow = get_hf_regex().replace_all(&result, "[HUGGINGFACE_TOKEN]");
+        let cow = get_hf_regex().replace_all(&result, "<REDACTED_HUGGINGFACE_TOKEN/>");
         if let std::borrow::Cow::Owned(temp) = cow {
             if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
             result = std::borrow::Cow::Owned(temp);
         }
 
-        let cow = get_cohere_regex().replace_all(&result, "[COHERE_KEY]");
+        let cow = get_cohere_regex().replace_all(&result, "<REDACTED_COHERE_KEY/>");
         if let std::borrow::Cow::Owned(temp) = cow {
             if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
             result = std::borrow::Cow::Owned(temp);
         }
 
-        let cow = get_github_regex().replace_all(&result, "[GITHUB_TOKEN]");
+        let cow = get_github_regex().replace_all(&result, "<REDACTED_GITHUB_TOKEN/>");
         if let std::borrow::Cow::Owned(temp) = cow {
             if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
             result = std::borrow::Cow::Owned(temp);
         }
 
-        let cow = get_slack_regex().replace_all(&result, "[SLACK_TOKEN]");
+        let cow = get_slack_regex().replace_all(&result, "<REDACTED_SLACK_TOKEN/>");
         if let std::borrow::Cow::Owned(temp) = cow {
             if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
             result = std::borrow::Cow::Owned(temp);
         }
 
-        let cow = get_stripe_regex().replace_all(&result, "[STRIPE_KEY]");
+        let cow = get_stripe_regex().replace_all(&result, "<REDACTED_STRIPE_KEY/>");
         if let std::borrow::Cow::Owned(temp) = cow {
             if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
             result = std::borrow::Cow::Owned(temp);
         }
 
-        let cow = get_chutes_regex().replace_all(&result, "[CHUTES_KEY]");
+        let cow = get_chutes_regex().replace_all(&result, "<REDACTED_CHUTES_KEY/>");
         if let std::borrow::Cow::Owned(temp) = cow {
             if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
             result = std::borrow::Cow::Owned(temp);
         }
 
-        let cow = get_tinfoil_regex().replace_all(&result, "[TINFOIL_API_KEY]");
+        let cow = get_tinfoil_regex().replace_all(&result, "<REDACTED_TINFOIL_API_KEY/>");
         if let std::borrow::Cow::Owned(temp) = cow {
             if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
             result = std::borrow::Cow::Owned(temp);
         }
 
-        let cow = get_infomaniak_regex().replace_all(&result, "[INFOMANIAK_KEY]");
+        let cow = get_infomaniak_regex().replace_all(&result, "<REDACTED_INFOMANIAK_KEY/>");
         if let std::borrow::Cow::Owned(temp) = cow {
             if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
             result = std::borrow::Cow::Owned(temp);
@@ -253,7 +253,7 @@ impl PiiMap {
     }
 
     pub fn unredact(&self, text: &str) -> String {
-        if self.map.is_empty() { return text.to_string(); }
+        if self.map.is_empty() || !text.contains("<REDACTED_") { return text.to_string(); }
         let mut result = text.to_string();
         for (redacted, original) in self.map.iter() {
             result = result.replace(redacted, original);
@@ -279,17 +279,24 @@ impl StreamingUnredactor {
         if self.pii_map.map.is_empty() {
             return chunk.to_string();
         }
+
+        // Fast-path: if there's no pending tag in the buffer, and this chunk doesn't even contain a '<'
+        // to start a new tag, we can instantly return the chunk without ANY string allocations!
+        if self.buffer.is_empty() && !chunk.contains('<') {
+            return chunk.to_string();
+        }
+
         self.buffer.push_str(chunk);
         
         let mut output = String::new();
-        
-        while let Some(pos) = self.buffer.find('[') {
-            if let Some(end_pos) = self.buffer[pos..].find(']') {
+
+        while let Some(pos) = self.buffer.find("<REDACTED_") {
+            if let Some(end_pos) = self.buffer[pos..].find("/>") {
                 let mut actual_start = pos;
-                if let Some(inner_pos) = self.buffer[pos + 1..pos + end_pos].rfind('[') {
+                if let Some(inner_pos) = self.buffer[pos + 1..pos + end_pos].rfind("<REDACTED_") {
                     actual_start = pos + 1 + inner_pos;
                 }
-                let end_idx = pos + end_pos;
+                let end_idx = pos + end_pos + 1;
                 let tag = &self.buffer[actual_start..=end_idx];
                 
                 output.push_str(&self.buffer[..actual_start]);
@@ -302,12 +309,17 @@ impl StreamingUnredactor {
                 
                 self.buffer = self.buffer[end_idx + 1..].to_string();
             } else {
-                if self.buffer.len() - pos > 30 {
-                    output.push_str(&self.buffer[..=pos]);
-                    self.buffer = self.buffer[pos+1..].to_string();
-                } else {
-                    output.push_str(&self.buffer[..pos]);
-                    self.buffer = self.buffer[pos..].to_string();
+                break;
+            }
+        }
+        
+        if let Some(last_open) = self.buffer.rfind('<') {
+            if self.buffer[last_open..].find('>').is_none() {
+                // Ensure we don't hold the buffer forever if it's not a valid tag
+                if self.buffer.len() - last_open < 50 {
+                    let return_str = self.buffer[..last_open].to_string();
+                    self.buffer = self.buffer[last_open..].to_string();
+                    output.push_str(&return_str);
                     return output;
                 }
             }
@@ -334,7 +346,7 @@ mod tests {
         let mut pii_map = PiiMap::new();
         let text = "Contact us at admin@example.com or support@test.co.uk!";
         let redacted = pii_map.redact(text);
-        assert_eq!(redacted, "Contact us at [EMAIL_1] or [EMAIL_2]!");
+        assert_eq!(redacted, "Contact us at <REDACTED_EMAIL_1/> or <REDACTED_EMAIL_2/>!");
         assert_eq!(pii_map.unredact(&redacted), text);
     }
 
@@ -343,7 +355,7 @@ mod tests {
         let mut pii_map = PiiMap::new();
         let text = "IPv4: 192.168.1.1, IPv6: 2001:0db8:85a3::8a2e:0370:7334 and ::1";
         let redacted = pii_map.redact(text);
-        assert_eq!(redacted, "IPv4: [IP_ADDRESS_1], IPv6: [IP_ADDRESS_2] and [IP_ADDRESS_3]");
+        assert_eq!(redacted, "IPv4: <REDACTED_IP_ADDRESS_1/>, IPv6: <REDACTED_IP_ADDRESS_2/> and <REDACTED_IP_ADDRESS_3/>");
         assert_eq!(pii_map.unredact(&redacted), text);
         
         let mut pii_map2 = PiiMap::new();
@@ -355,13 +367,13 @@ mod tests {
     #[test]
     fn test_phone_redaction() {
         let cases = vec![
-            ("Call +1 202 800 9999 now", "Call [PHONE_1] now"),
-            ("Or (202) 800-9999", "Or [PHONE_1]"),
-            ("What about +44 20 7946 0958?", "What about [PHONE_1]?"),
-            ("Unformatted 2028009999 is here", "Unformatted [PHONE_1] is here"),
-            ("Extension 202-800-9999 ext 123", "Extension [PHONE_1]"),
-            ("E164 +12028009999 format", "E164 [PHONE_1] format"),
-            ("Spaced 202 800 9999 format", "Spaced [PHONE_1] format"),
+            ("Call +1 202 800 9999 now", "Call <REDACTED_PHONE_1/> now"),
+            ("Or (202) 800-9999", "Or <REDACTED_PHONE_1/>"),
+            ("What about +44 20 7946 0958?", "What about <REDACTED_PHONE_1/>?"),
+            ("Unformatted 2028009999 is here", "Unformatted <REDACTED_PHONE_1/> is here"),
+            ("Extension 202-800-9999 ext 123", "Extension <REDACTED_PHONE_1/>"),
+            ("E164 +12028009999 format", "E164 <REDACTED_PHONE_1/> format"),
+            ("Spaced 202 800 9999 format", "Spaced <REDACTED_PHONE_1/> format"),
         ];
         
         for (original, expected) in cases {
@@ -376,7 +388,7 @@ mod tests {
         let mut pii_map = PiiMap::new();
         let text = "My card is 4111 1111 1111 1111 and 1234-5678-9012-3456.";
         let redacted = pii_map.redact(text);
-        assert_eq!(redacted, "My card is [CREDIT_CARD_1] and [CREDIT_CARD_2].");
+        assert_eq!(redacted, "My card is <REDACTED_CREDIT_CARD_1/> and <REDACTED_CREDIT_CARD_2/>.");
         assert_eq!(pii_map.unredact(&redacted), text);
     }
 
@@ -385,7 +397,7 @@ mod tests {
         let mut pii_map = PiiMap::new();
         let text = "My SSN is 123-45-6789 or 987 65 4321.";
         let redacted = pii_map.redact(text);
-        assert_eq!(redacted, "My SSN is [SSN_1] or [SSN_2].");
+        assert_eq!(redacted, "My SSN is <REDACTED_SSN_1/> or <REDACTED_SSN_2/>.");
         assert_eq!(pii_map.unredact(&redacted), text);
     }
 }

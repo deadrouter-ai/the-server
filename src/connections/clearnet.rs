@@ -141,7 +141,7 @@ fn spawn_https_listener(listener: TcpListener, acceptor: TlsAcceptor, state: Arc
                 if let Err(e) = builder.serve_connection(io, svc).await
                 {
                     let err_str = e.to_string();
-                    if !e.is_incomplete_message() && !err_str.contains("timeout") && !err_str.contains("invalid HTTP method") {
+                    if !err_str.contains("timeout") && !err_str.contains("invalid HTTP method") && !err_str.contains("incomplete message") {
                         tracing::error!("[http] connection error ({}): {}", peer, e);
                     }
                 }
