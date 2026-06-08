@@ -19,7 +19,16 @@ use crate::connections::crypto::{generate_self_signed, hardened_crypto_provider}
 pub async fn hyper_handler(
     state: Arc<AppState>,
     req: Request<hyper::body::Incoming>,
+    peer: std::net::SocketAddr,
 ) -> Result<Response<http_body_util::combinators::BoxBody<Bytes, Infallible>>, Infallible> {
+    if let Err(retry_after) = state.dos_protection.check_request(peer.ip()) {
+        let resp = Response::builder()
+            .status(StatusCode::TOO_MANY_REQUESTS)
+            .header("Retry-After", retry_after.to_string())
+            .body(crate::routes::full_body(String::new()))
+            .unwrap();
+        return Ok(resp);
+    }
     let proto = match req.version() {
         hyper::Version::HTTP_2 => "HTTP/2",
         _ => "HTTP/1.1",
@@ -101,7 +110,12 @@ fn spawn_https_listener(listener: TcpListener, acceptor: TlsAcceptor, state: Arc
             };
             let acceptor = acceptor.clone();
             let state = state.clone();
+            let guard = match state.dos_protection.try_acquire_connection(peer.ip()) {
+                Some(g) => g,
+                None => continue,
+            };
             tokio::spawn(async move {
+                let _guard = guard;
                 let tls_stream = match acceptor.accept(tcp_stream).await {
                     Ok(s) => s,
                     Err(e) => {
@@ -114,9 +128,10 @@ fn spawn_https_listener(listener: TcpListener, acceptor: TlsAcceptor, state: Arc
                 };
                 let io = hyper_util::rt::TokioIo::new(tls_stream);
                 let state = state.clone();
+                let peer_clone = peer;
                 let svc = service_fn(move |req| {
                     let state = state.clone();
-                    hyper_handler(state, req)
+                    hyper_handler(state, req, peer_clone)
                 });
                 if let Err(e) = hyper_util::server::conn::auto::Builder::new(
                     hyper_util::rt::TokioExecutor::new(),
@@ -137,6 +152,14 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
         while let Some(conn) = quic_server.accept().await {
             let state = state.clone();
             tokio::spawn(async move {
+                let peer = match conn.remote_addr() {
+                    Ok(addr) => addr,
+                    Err(_) => return,
+                };
+                let _guard = match state.dos_protection.try_acquire_connection(peer.ip()) {
+                    Some(g) => g,
+                    None => return,
+                };
                 let h3_conn = quic_h3::Connection::new(conn);
                 let mut h3_server = match h3::server::Connection::new(h3_conn).await {
                     Ok(c) => c,
@@ -152,6 +175,18 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
                             let state = state.clone();
                             tokio::spawn(async move {
                                 let (parts, _) = req.into_parts();
+                                
+                                if let Err(retry_after) = state.dos_protection.check_request(peer.ip()) {
+                                    let resp = hyper::Response::builder()
+                                        .status(StatusCode::TOO_MANY_REQUESTS)
+                                        .header("Retry-After", retry_after.to_string())
+                                        .body(())
+                                        .unwrap();
+                                    let _ = stream.send_response(resp).await;
+                                    let _ = stream.finish().await;
+                                    return;
+                                }
+
                                 let mut body_bytes = Vec::new();
                                 while let Ok(Some(mut chunk)) = stream.recv_data().await {
                                     use bytes::Buf;
@@ -159,6 +194,13 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
                                         let c = chunk.chunk();
                                         body_bytes.extend_from_slice(c);
                                         chunk.advance(c.len());
+                                        if body_bytes.len() > 10 * 1024 * 1024 {
+                                            break;
+                                        }
+                                    }
+                                    if body_bytes.len() > 10 * 1024 * 1024 {
+                                        body_bytes.clear();
+                                        break;
                                     }
                                 }
 
@@ -239,7 +281,7 @@ fn spawn_http(listener: TcpListener, state: Arc<AppState>) {
     let is_dev = cfg!(feature = "development");
     tokio::spawn(async move {
         loop {
-            let (stream, _peer) = match listener.accept().await {
+            let (stream, peer) = match listener.accept().await {
                 Ok(c) => c,
                 Err(e) => {
                     tracing::error!("[http] accept error: {}", e);
@@ -247,13 +289,18 @@ fn spawn_http(listener: TcpListener, state: Arc<AppState>) {
                 }
             };
             let state = state.clone();
+            let guard = match state.dos_protection.try_acquire_connection(peer.ip()) {
+                Some(g) => g,
+                None => continue,
+            };
             tokio::spawn(async move {
+                let _guard = guard;
                 let io = hyper_util::rt::TokioIo::new(stream);
                 if is_dev {
-                    // Serve API directly in plaintext for localhost development to bypass self-signed cert errors
+                    let peer_clone = peer;
                     let svc = service_fn(move |req| {
                         let state = state.clone();
-                        hyper_handler(state, req)
+                        hyper_handler(state, req, peer_clone)
                     });
                     if let Err(e) = hyper::server::conn::http1::Builder::new()
                         .serve_connection(io, svc)

@@ -143,6 +143,8 @@ pub struct AppState {
     pub ticket_secrets: Arc<tokio::sync::RwLock<crate::crypto_e2ee::TicketSecrets>>,
     /// Tinfoil TEE-verified inference client.
     pub tinfoil_client: tinfoil::Client,
+    /// DoS protection manager.
+    pub dos_protection: Arc<crate::utils::dos::DosProtection>,
 }
 
 impl AppState {
@@ -156,6 +158,7 @@ impl AppState {
         routing_table: HashMap<String, Vec<String>>,
         ticket_secrets: Arc<tokio::sync::RwLock<crate::crypto_e2ee::TicketSecrets>>,
         tinfoil_client: tinfoil::Client,
+        dos_protection: Arc<crate::utils::dos::DosProtection>,
     ) -> Self {
         Self {
             onion_data: std::sync::RwLock::new(OnionData::new()),
@@ -169,6 +172,7 @@ impl AppState {
             routing_table: tokio::sync::RwLock::new(routing_table),
             ticket_secrets,
             tinfoil_client,
+            dos_protection,
         }
     }
 }

@@ -134,10 +134,14 @@ impl StreamingUnredactor {
         
         while let Some(pos) = self.buffer.find('[') {
             if let Some(end_pos) = self.buffer[pos..].find(']') {
+                let mut actual_start = pos;
+                if let Some(inner_pos) = self.buffer[pos + 1..pos + end_pos].rfind('[') {
+                    actual_start = pos + 1 + inner_pos;
+                }
                 let end_idx = pos + end_pos;
-                let tag = &self.buffer[pos..=end_idx];
+                let tag = &self.buffer[actual_start..=end_idx];
                 
-                output.push_str(&self.buffer[..pos]);
+                output.push_str(&self.buffer[..actual_start]);
                 
                 if let Some(original) = self.pii_map.map.get(tag) {
                     output.push_str(original);

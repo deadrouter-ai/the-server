@@ -264,6 +264,7 @@ async fn main() {
         routing_table,
         ticket_secrets,
         tinfoil_client,
+        Arc::new(utils::dos::DosProtection::new()),
     ));
 
     // ---- Spawn Dynamic Pricing background update tasks ----
