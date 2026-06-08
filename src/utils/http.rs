@@ -3,6 +3,33 @@ use bytes::Bytes;
 use hyper::body::Frame;
 use futures::StreamExt;
 use http_body_util::{combinators::BoxBody, BodyExt, Full, StreamBody};
+use base64ct::{Base64, Encoding};
+
+pub fn compute_sha512_b64(data: &str) -> String {
+    let digest = aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA512, data.as_bytes());
+    let b64 = Base64::encode_string(digest.as_ref());
+    format!("'sha512-{}'", b64)
+}
+
+pub fn get_security_headers(style_hash: &str) -> Vec<(&'static str, String)> {
+    vec![
+        ("Content-Security-Policy", format!(
+            "default-src 'none'; \
+             script-src 'none'; \
+             style-src {}; \
+             form-action 'self'; \
+             base-uri 'none'; \
+             frame-ancestors 'none'; \
+             img-src 'self'; \
+             upgrade-insecure-requests;",
+            style_hash
+        )),
+        ("X-Frame-Options", "DENY".to_string()),
+        ("X-Content-Type-Options", "nosniff".to_string()),
+        ("Referrer-Policy", "no-referrer".to_string()),
+        ("Content-Type", "text/html; charset=utf-8".to_string()),
+    ]
+}
 
 /// Standardizes error extraction from upstream HTTP responses, including `Retry-After` headers.
 pub fn format_upstream_error(status: reqwest::StatusCode, retry_after: Option<&str>, mut body_text: String) -> String {

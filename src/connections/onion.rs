@@ -188,7 +188,10 @@ pub async fn start(state: Arc<AppState>) {
                         }
                     });
 
-                    let _ = hyper::server::conn::http1::Builder::new().serve_connection(io, svc).await;
+                    let mut builder = hyper::server::conn::http1::Builder::new();
+                    builder.timer(hyper_util::rt::TokioTimer::new());
+                    builder.header_read_timeout(std::time::Duration::from_secs(10));
+                    let _ = builder.serve_connection(io, svc).await;
                 } else if port == 443 {
                     let data_stream = match stream_req
                         .accept(tor_cell::relaycell::msg::Connected::new_empty())
@@ -246,11 +249,11 @@ pub async fn start(state: Arc<AppState>) {
                         }
                     });
 
-                    let _ = hyper_util::server::conn::auto::Builder::new(
+                    let mut builder = hyper_util::server::conn::auto::Builder::new(
                         hyper_util::rt::TokioExecutor::new(),
-                    )
-                    .serve_connection(io, svc)
-                    .await;
+                    );
+                    builder.http1().timer(hyper_util::rt::TokioTimer::new()).header_read_timeout(std::time::Duration::from_secs(10));
+                    let _ = builder.serve_connection(io, svc).await;
                 }
             });
         }

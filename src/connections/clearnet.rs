@@ -137,10 +137,13 @@ fn spawn_https_listener(listener: TcpListener, acceptor: TlsAcceptor, state: Arc
                 let mut builder = hyper_util::server::conn::auto::Builder::new(
                     hyper_util::rt::TokioExecutor::new(),
                 );
-                builder.http1().header_read_timeout(std::time::Duration::from_secs(10));
+                builder.http1().timer(hyper_util::rt::TokioTimer::new()).header_read_timeout(std::time::Duration::from_secs(10));
                 if let Err(e) = builder.serve_connection(io, svc).await
                 {
-                    tracing::error!("[http] connection error ({}): {}", peer, e);
+                    let err_str = e.to_string();
+                    if !e.is_incomplete_message() && !err_str.contains("timeout") && !err_str.contains("invalid HTTP method") {
+                        tracing::error!("[http] connection error ({}): {}", peer, e);
+                    }
                 }
             });
         }
@@ -307,6 +310,7 @@ fn spawn_http(listener: TcpListener, state: Arc<AppState>) {
                 let _guard = guard;
                 let io = hyper_util::rt::TokioIo::new(stream);
                 let mut builder = hyper::server::conn::http1::Builder::new();
+                builder.timer(hyper_util::rt::TokioTimer::new());
                 builder.header_read_timeout(std::time::Duration::from_secs(10));
 
                 if is_dev {
@@ -315,21 +319,21 @@ fn spawn_http(listener: TcpListener, state: Arc<AppState>) {
                         let state = state.clone();
                         hyper_handler(state, req, peer_clone)
                     });
-                    if let Err(e) = builder
-                        .serve_connection(io, svc)
-                        .await
-                        && !e.is_incomplete_message() {
+                    if let Err(e) = builder.serve_connection(io, svc).await {
+                        let err_str = e.to_string();
+                        if !e.is_incomplete_message() && !err_str.contains("timeout") && !err_str.contains("invalid HTTP method") {
                             tracing::error!("[http] dev connection error: {}", e);
                         }
+                    }
                 } else {
                     // Redirect to HTTPS in production
                     let svc = service_fn(redirect_to_https);
-                    if let Err(e) = builder
-                        .serve_connection(io, svc)
-                        .await
-                        && !e.is_incomplete_message() {
+                    if let Err(e) = builder.serve_connection(io, svc).await {
+                        let err_str = e.to_string();
+                        if !e.is_incomplete_message() && !err_str.contains("timeout") && !err_str.contains("invalid HTTP method") {
                             tracing::error!("[http] redirect connection error: {}", e);
                         }
+                    }
                 }
             });
         }
