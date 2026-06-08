@@ -28,6 +28,71 @@ fn get_ssn_regex() -> &'static Regex {
     RE.get_or_init(|| Regex::new(r"\b\d{3}[ -]?\d{2}[ -]?\d{4}\b").unwrap())
 }
 
+fn get_openai_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\bsk-(?!ant-|rp-)[a-zA-Z0-9\-_]{32,120}\b").unwrap())
+}
+
+fn get_anthropic_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\bsk-ant-[a-zA-Z0-9\-_]{30,120}\b").unwrap())
+}
+
+fn get_google_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\bAIza[0-9A-Za-z\-_]{35}\b").unwrap())
+}
+
+fn get_hf_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\bhf_[a-zA-Z0-9]{30,40}\b").unwrap())
+}
+
+fn get_cohere_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"(?i)\bcohere[_-]?[a-zA-Z0-9]{30,50}\b").unwrap())
+}
+
+fn get_github_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\b(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9]{36}\b").unwrap())
+}
+
+fn get_slack_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\bxox[baprs]-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9]{24}\b|\bxox[baprs]-[a-zA-Z0-9]{24,34}\b").unwrap())
+}
+
+fn get_stripe_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\b(?:sk|rk)_(?:test|live)_[a-zA-Z0-9]{24,99}\b").unwrap())
+}
+
+fn get_redpill_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\bsk-rp-[a-zA-Z0-9]{64}\b").unwrap())
+}
+
+fn get_chutes_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\bcpk_[a-zA-Z0-9]{32}\.[a-zA-Z0-9]{32}\.[a-zA-Z0-9]{32}\b").unwrap())
+}
+
+fn get_nearai_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\bsk-[a-fA-F0-9]{32}\b").unwrap())
+}
+
+fn get_tinfoil_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\btk_[a-zA-Z0-9]{50}\b").unwrap())
+}
+
+fn get_infomaniak_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\b[a-zA-Z0-9\-_]{80}\b").unwrap())
+}
+
 #[derive(Default, Clone)]
 pub struct PiiMap {
     pub map: HashMap<String, String>,
@@ -50,55 +115,141 @@ impl PiiMap {
     }
 
     pub fn redact(&mut self, text: &str) -> String {
-        let mut result = text.to_string();
+        let mut result: std::borrow::Cow<'_, str> = std::borrow::Cow::Borrowed(text);
         
         let mut counter = 1;
-        result = get_email_regex().replace_all(&result, |caps: &regex::Captures| {
+        let cow = get_email_regex().replace_all(&result, |caps: &regex::Captures| {
             let original = caps[0].to_string();
             let replacement = format!("[EMAIL_{}]", counter);
             self.map.insert(replacement.clone(), original);
             counter += 1;
             replacement
-        }).to_string();
+        });
+        if let std::borrow::Cow::Owned(s) = cow { result = std::borrow::Cow::Owned(s); }
 
         counter = 1;
-        result = get_ip_regex().replace_all(&result, |caps: &regex::Captures| {
+        let cow = get_ip_regex().replace_all(&result, |caps: &regex::Captures| {
             let original = caps[0].to_string();
             let replacement = format!("[IP_ADDRESS_{}]", counter);
             self.map.insert(replacement.clone(), original);
             counter += 1;
             replacement
-        }).to_string();
+        });
+        if let std::borrow::Cow::Owned(s) = cow { result = std::borrow::Cow::Owned(s); }
         
         counter = 1;
-        result = get_cc_regex().replace_all(&result, |caps: &regex::Captures| {
+        let cow = get_cc_regex().replace_all(&result, |caps: &regex::Captures| {
             let original = caps[0].to_string();
             let replacement = format!("[CREDIT_CARD_{}]", counter);
             self.map.insert(replacement.clone(), original);
             counter += 1;
             replacement
-        }).to_string();
+        });
+        if let std::borrow::Cow::Owned(s) = cow { result = std::borrow::Cow::Owned(s); }
 
         counter = 1;
-        result = get_ssn_regex().replace_all(&result, |caps: &regex::Captures| {
+        let cow = get_ssn_regex().replace_all(&result, |caps: &regex::Captures| {
             let original = caps[0].to_string();
             let replacement = format!("[SSN_{}]", counter);
             self.map.insert(replacement.clone(), original);
             counter += 1;
             replacement
-        }).to_string();
+        });
+        if let std::borrow::Cow::Owned(s) = cow { result = std::borrow::Cow::Owned(s); }
 
         counter = 1;
-        result = get_phone_regex().replace_all(&result, |caps: &regex::Captures| {
+        let cow = get_phone_regex().replace_all(&result, |caps: &regex::Captures| {
             let prefix = caps[1].to_string();
             let original = caps[2].to_string();
             let replacement = format!("[PHONE_{}]", counter);
             self.map.insert(replacement.clone(), original);
             counter += 1;
             format!("{}{}", prefix, replacement)
-        }).to_string();
+        });
+        if let std::borrow::Cow::Owned(s) = cow { result = std::borrow::Cow::Owned(s); }
 
-        result
+        // ---- Non-restorable Secrets Redaction ----
+        // We replace them directly and immediately zeroize the previous string buffers from memory.
+
+        let cow = get_redpill_regex().replace_all(&result, "[REDPILL_AI_KEY]");
+        if let std::borrow::Cow::Owned(temp) = cow {
+            if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
+            result = std::borrow::Cow::Owned(temp);
+        }
+
+        let cow = get_nearai_regex().replace_all(&result, "[NEAR_AI_KEY]");
+        if let std::borrow::Cow::Owned(temp) = cow {
+            if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
+            result = std::borrow::Cow::Owned(temp);
+        }
+
+        let cow = get_openai_regex().replace_all(&result, "[OPENAI_KEY]");
+        if let std::borrow::Cow::Owned(temp) = cow {
+            if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
+            result = std::borrow::Cow::Owned(temp);
+        }
+
+        let cow = get_anthropic_regex().replace_all(&result, "[ANTHROPIC_KEY]");
+        if let std::borrow::Cow::Owned(temp) = cow {
+            if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
+            result = std::borrow::Cow::Owned(temp);
+        }
+
+        let cow = get_google_regex().replace_all(&result, "[GOOGLE_API_KEY]");
+        if let std::borrow::Cow::Owned(temp) = cow {
+            if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
+            result = std::borrow::Cow::Owned(temp);
+        }
+
+        let cow = get_hf_regex().replace_all(&result, "[HUGGINGFACE_TOKEN]");
+        if let std::borrow::Cow::Owned(temp) = cow {
+            if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
+            result = std::borrow::Cow::Owned(temp);
+        }
+
+        let cow = get_cohere_regex().replace_all(&result, "[COHERE_KEY]");
+        if let std::borrow::Cow::Owned(temp) = cow {
+            if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
+            result = std::borrow::Cow::Owned(temp);
+        }
+
+        let cow = get_github_regex().replace_all(&result, "[GITHUB_TOKEN]");
+        if let std::borrow::Cow::Owned(temp) = cow {
+            if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
+            result = std::borrow::Cow::Owned(temp);
+        }
+
+        let cow = get_slack_regex().replace_all(&result, "[SLACK_TOKEN]");
+        if let std::borrow::Cow::Owned(temp) = cow {
+            if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
+            result = std::borrow::Cow::Owned(temp);
+        }
+
+        let cow = get_stripe_regex().replace_all(&result, "[STRIPE_KEY]");
+        if let std::borrow::Cow::Owned(temp) = cow {
+            if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
+            result = std::borrow::Cow::Owned(temp);
+        }
+
+        let cow = get_chutes_regex().replace_all(&result, "[CHUTES_KEY]");
+        if let std::borrow::Cow::Owned(temp) = cow {
+            if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
+            result = std::borrow::Cow::Owned(temp);
+        }
+
+        let cow = get_tinfoil_regex().replace_all(&result, "[TINFOIL_API_KEY]");
+        if let std::borrow::Cow::Owned(temp) = cow {
+            if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
+            result = std::borrow::Cow::Owned(temp);
+        }
+
+        let cow = get_infomaniak_regex().replace_all(&result, "[INFOMANIAK_KEY]");
+        if let std::borrow::Cow::Owned(temp) = cow {
+            if let std::borrow::Cow::Owned(mut s) = result { s.zeroize(); }
+            result = std::borrow::Cow::Owned(temp);
+        }
+
+        result.into_owned()
     }
 
     pub fn unredact(&self, text: &str) -> String {
