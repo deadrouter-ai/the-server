@@ -46,6 +46,7 @@ impl Drop for ConnectionGuard {
 pub struct DosProtection {
     subnets: Mutex<HashMap<Subnet, SubnetState>>,
     ips: Mutex<HashMap<Ipv4Addr, IpState>>,
+    global_connections: std::sync::atomic::AtomicU32,
 }
 
 impl Default for DosProtection {
@@ -59,6 +60,7 @@ impl DosProtection {
         Self {
             subnets: Mutex::new(HashMap::new()),
             ips: Mutex::new(HashMap::new()),
+            global_connections: std::sync::atomic::AtomicU32::new(0),
         }
     }
 
@@ -74,6 +76,10 @@ impl DosProtection {
             }
         };
 
+        if self.global_connections.load(std::sync::atomic::Ordering::Relaxed) >= 15000 {
+            return None;
+        }
+
         let mut ips = self.ips.lock().unwrap();
         let state = ips.entry(ipv4).or_insert_with(|| IpState {
             requests: VecDeque::new(),
@@ -87,6 +93,7 @@ impl DosProtection {
         }
 
         state.active_connections += 1;
+        self.global_connections.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         Some(ConnectionGuard {
             dos: self.clone(),
             ipv4,
@@ -94,6 +101,7 @@ impl DosProtection {
     }
 
     pub(crate) fn decrement_connection(&self, ipv4: Ipv4Addr) {
+        self.global_connections.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
         if let Ok(mut ips) = self.ips.lock() {
             if let Some(state) = ips.get_mut(&ipv4) {
                 state.active_connections = state.active_connections.saturating_sub(1);

@@ -35,9 +35,16 @@ pub async fn hyper_handler(
     };
     let (parts, incoming_body) = req.into_parts();
     let limited_body = http_body_util::Limited::new(incoming_body, 10 * 1024 * 1024);
-    let body_bytes = match http_body_util::BodyExt::collect(limited_body).await {
-        Ok(collected) => collected.to_bytes(),
-        Err(_) => Bytes::new(),
+    let body_bytes = match tokio::time::timeout(std::time::Duration::from_secs(10), http_body_util::BodyExt::collect(limited_body)).await {
+        Ok(Ok(collected)) => collected.to_bytes(),
+        Ok(Err(_)) => Bytes::new(),
+        Err(_) => {
+            let resp = Response::builder()
+                .status(StatusCode::REQUEST_TIMEOUT)
+                .body(crate::routes::full_body(String::new()))
+                .unwrap();
+            return Ok(resp);
+        }
     };
 
     let mut header_map = std::collections::HashMap::new();
@@ -116,15 +123,9 @@ fn spawn_https_listener(listener: TcpListener, acceptor: TlsAcceptor, state: Arc
             };
             tokio::spawn(async move {
                 let _guard = guard;
-                let tls_stream = match acceptor.accept(tcp_stream).await {
-                    Ok(s) => s,
-                    Err(e) => {
-                        let err_str = e.to_string();
-                        if !err_str.contains("InvalidContentType") {
-                            tracing::error!("[tls]  handshake failed ({}): {}", peer, e);
-                        }
-                        return;
-                    }
+                let tls_stream = match tokio::time::timeout(std::time::Duration::from_secs(10), acceptor.accept(tcp_stream)).await {
+                    Ok(Ok(s)) => s,
+                    _ => return,
                 };
                 let io = hyper_util::rt::TokioIo::new(tls_stream);
                 let state = state.clone();
@@ -133,11 +134,11 @@ fn spawn_https_listener(listener: TcpListener, acceptor: TlsAcceptor, state: Arc
                     let state = state.clone();
                     hyper_handler(state, req, peer_clone)
                 });
-                if let Err(e) = hyper_util::server::conn::auto::Builder::new(
+                let mut builder = hyper_util::server::conn::auto::Builder::new(
                     hyper_util::rt::TokioExecutor::new(),
-                )
-                .serve_connection(io, svc)
-                .await
+                );
+                builder.http1().header_read_timeout(std::time::Duration::from_secs(10));
+                if let Err(e) = builder.serve_connection(io, svc).await
                 {
                     tracing::error!("[http] connection error ({}): {}", peer, e);
                 }
@@ -161,12 +162,9 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
                     None => return,
                 };
                 let h3_conn = quic_h3::Connection::new(conn);
-                let mut h3_server = match h3::server::Connection::new(h3_conn).await {
-                    Ok(c) => c,
-                    Err(e) => {
-                        tracing::error!("[h3]   connection setup failed: {}", e);
-                        return;
-                    }
+                let mut h3_server = match tokio::time::timeout(std::time::Duration::from_secs(10), h3::server::Connection::new(h3_conn)).await {
+                    Ok(Ok(c)) => c,
+                    _ => return,
                 };
 
                 loop {
@@ -188,20 +186,32 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
                                 }
 
                                 let mut body_bytes = Vec::new();
-                                while let Ok(Some(mut chunk)) = stream.recv_data().await {
-                                    use bytes::Buf;
-                                    while chunk.has_remaining() {
-                                        let c = chunk.chunk();
-                                        body_bytes.extend_from_slice(c);
-                                        chunk.advance(c.len());
+                                let timeout_res = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+                                    while let Ok(Some(mut chunk)) = stream.recv_data().await {
+                                        use bytes::Buf;
+                                        while chunk.has_remaining() {
+                                            let c = chunk.chunk();
+                                            body_bytes.extend_from_slice(c);
+                                            chunk.advance(c.len());
+                                            if body_bytes.len() > 10 * 1024 * 1024 {
+                                                break;
+                                            }
+                                        }
                                         if body_bytes.len() > 10 * 1024 * 1024 {
+                                            body_bytes.clear();
                                             break;
                                         }
                                     }
-                                    if body_bytes.len() > 10 * 1024 * 1024 {
-                                        body_bytes.clear();
-                                        break;
-                                    }
+                                }).await;
+
+                                if timeout_res.is_err() {
+                                    let resp = hyper::Response::builder()
+                                        .status(StatusCode::REQUEST_TIMEOUT)
+                                        .body(())
+                                        .unwrap();
+                                    let _ = stream.send_response(resp).await;
+                                    let _ = stream.finish().await;
+                                    return;
                                 }
 
                                 let mut header_map = std::collections::HashMap::new();
@@ -296,13 +306,16 @@ fn spawn_http(listener: TcpListener, state: Arc<AppState>) {
             tokio::spawn(async move {
                 let _guard = guard;
                 let io = hyper_util::rt::TokioIo::new(stream);
+                let mut builder = hyper::server::conn::http1::Builder::new();
+                builder.header_read_timeout(std::time::Duration::from_secs(10));
+
                 if is_dev {
                     let peer_clone = peer;
                     let svc = service_fn(move |req| {
                         let state = state.clone();
                         hyper_handler(state, req, peer_clone)
                     });
-                    if let Err(e) = hyper::server::conn::http1::Builder::new()
+                    if let Err(e) = builder
                         .serve_connection(io, svc)
                         .await
                         && !e.is_incomplete_message() {
@@ -311,7 +324,7 @@ fn spawn_http(listener: TcpListener, state: Arc<AppState>) {
                 } else {
                     // Redirect to HTTPS in production
                     let svc = service_fn(redirect_to_https);
-                    if let Err(e) = hyper::server::conn::http1::Builder::new()
+                    if let Err(e) = builder
                         .serve_connection(io, svc)
                         .await
                         && !e.is_incomplete_message() {
