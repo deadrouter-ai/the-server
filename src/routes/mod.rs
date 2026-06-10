@@ -123,6 +123,11 @@ pub async fn router(
             crate::routes::api::chat_completions::handle_secure_openai_proxy(state, req).await
         }
 
+        // ---- Tinfoil E2EE Proxy ----
+        (Method::POST, "/v1/private/tinfoil/v1/chat/completions") => {
+            crate::routes::api::tinfoil_e2ee::handle_tinfoil_chat_completions(state, req).await
+        }
+
         // ---- Models ----
         (Method::GET, "/v1/models") => {
             crate::routes::api::models::handle_models_list(state, &req.uri.to_string()).await
