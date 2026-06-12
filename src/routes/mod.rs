@@ -98,7 +98,6 @@ pub async fn router(
 
     // Check if it's an API, asset, or metadata route first
     if path == "/health"
-        || path.starts_with("/logos/")
         || path.starts_with("/fonts/")
         || path.starts_with("/static/")
         || path == "/favicon.ico"
@@ -118,51 +117,6 @@ pub async fn router(
                     vec![("Content-Type", "application/json; charset=utf-8".into())],
                     full_body(body),
                 );
-            }
-
-            // ---- Logos ----
-            (Method::GET, path) if path.starts_with("/logos/") => {
-                let filename = path.trim_start_matches("/logos/");
-                
-                // Prevent path traversal
-                if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
-                    return (
-                        StatusCode::FORBIDDEN,
-                        vec![],
-                        Full::new(Bytes::new()).boxed(),
-                    );
-                }
-
-                let file_path = format!("static/logos/{}", filename);
-                match std::fs::read(&file_path) {
-                    Ok(data) => {
-                        let mime_type = match filename.split('.').next_back() {
-                            Some("svg") => "image/svg+xml",
-                            Some("png") => "image/png",
-                            Some("jpg") | Some("jpeg") => "image/jpeg",
-                            Some("gif") => "image/gif",
-                            Some("webp") => "image/webp",
-                            _ => "application/octet-stream",
-                        };
-
-                        let body = Full::new(Bytes::from(data)).map_err(|e| match e {}).boxed();
-                        return (
-                            StatusCode::OK,
-                            vec![
-                                ("Content-Type", mime_type.into()),
-                                ("Cache-Control", "public, max-age=31536000, immutable".into()),
-                            ],
-                            body,
-                        );
-                    }
-                    Err(_) => {
-                        return (
-                            StatusCode::NOT_FOUND,
-                            vec![],
-                            Full::new(Bytes::new()).boxed(),
-                        );
-                    }
-                }
             }
 
             // ---- Fonts ----
@@ -311,6 +265,19 @@ pub async fn router(
 
     // Dynamic localization routing for UI pages
     let (locale, inner_path) = parse_locale_and_path(path);
+
+    // Redirect /la prefix paths to their un-prefixed equivalents (Latin is default)
+    if path == "/la" || path.starts_with("/la/") {
+        let redirect_uri = match req.uri.query() {
+            Some(q) => format!("{}?{}", inner_path, q),
+            None => inner_path.to_string(),
+        };
+        return (
+            StatusCode::MOVED_PERMANENTLY,
+            vec![("Location", redirect_uri)],
+            full_body(String::new()),
+        );
+    }
 
     match (req.method.clone(), inner_path) {
         // ---- Landing page ----

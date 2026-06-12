@@ -630,6 +630,7 @@ nav {
     right: 8px;
     bottom: 8px;
     border: 1px dashed var(--border);
+    border-radius: calc(var(--radius-md) - 4px);
     pointer-events: none;
     transition: var(--transition);
 }
@@ -744,6 +745,7 @@ nav {
     right: 6px;
     bottom: 6px;
     border: 1px solid rgba(197, 160, 89, 0.05);
+    border-radius: calc(var(--radius-md) - 6px);
     pointer-events: none;
     transition: var(--transition);
 }
@@ -1275,6 +1277,40 @@ footer {
 .copyright {
     color: var(--text-sub);
     font-size: 0.9rem;
+}
+
+/* --- LANGUAGE SELECTOR --- */
+.language-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.language-selector .lang-label {
+    color: var(--text-sub);
+}
+
+.language-selector a.lang-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.language-selector a.lang-link:hover {
+    color: var(--text-main);
+    text-shadow: 0 0 5px rgba(197, 160, 89, 0.5);
+}
+
+.language-selector a.lang-link.active {
+    color: var(--accent-gold);
+    font-weight: bold;
+}
+
+.language-selector .lang-sep {
+    color: var(--border);
+    font-size: 0.8rem;
 }
 
 /* --- SECTION ACTION BUTTONS --- */

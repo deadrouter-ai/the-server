@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="la">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="robots" content="index, follow, noarchive, nocache">
-    <meta name="theme-color" content="#050505" />
+    <meta name="theme-color" content="#060404" />
 
-    <title>Model Directory - DeadRouter</title>
-    <meta name="title" content="Model Directory - DeadRouter" />
-    <meta name="description" content="Browse our dynamic list of routed AI models. Enjoy complete privacy with Zero Data Retention (ZDR) and Zero Data Scanning (ZDS) options." />
+    <title>Spiritus Grimoire - DeadRouter</title>
+    <meta name="title" content="Spiritus Grimoire - DeadRouter" />
+    <meta name="description" content="Conspectus dynamicus spirituum AI ad gateway. Securitas et taciturnitas cum ZDR et ZDS." />
 
     <style>{% include "style_models.css" %}</style>
 </head>
@@ -23,40 +23,39 @@
                 DeadRouter
             </a>
             <div class="nav-links">
-                <a href="/models">Models</a>
-                <a href="/providers">Providers</a>
-                <a href="/#faq">FAQ</a>
-                <a href="/login" class="btn btn-secondary btn-sm">Sign In</a>
+                <a href="/models">Modeli</a>
+                <a href="/providers">Praebitores</a>
+                <a href="/#faq">QSE</a>
+                <a href="/login" class="btn btn-secondary btn-sm">Introire</a>
             </div>
         </div>
     </nav>
 
     <div class="container">
         <header class="models-hero-section">
-            <h1>Model <span class="highlight">Directory</span></h1>
-            <p>Explore all routed models hosted across our privacy network. Use the search below to filter the models
-                dynamically.</p>
+            <h1>Catalogus <span class="highlight">Spirituum</span></h1>
+            <p>Census spirituum electorum ad portam nostram devincti. Evoca eos pro tua voluntate, sed fines eorum observa.</p>
 
             <!-- Sleek CSS-only Search Bar -->
             <div class="search-container">
                 <form method="GET" action="/models">
                     <div class="search-form">
-                        <input type="text" name="q" placeholder="Search models (e.g., Llama, Qwen)..."
+                        <input type="text" name="q" placeholder="Evoca spiritum (e.g., Llama, Qwen)..."
                             value="{{ search_query }}" class="search-input" />
-                        <button type="submit" class="btn btn-primary btn-sm search-btn">Search</button>
+                        <button type="submit" class="btn btn-primary btn-sm search-btn">Evoca</button>
                     </div>
                     <div class="filter-toggles">
                         <label class="filter-toggle">
                             <input type="checkbox" name="zdr" value="1" {% if filter_zdr %}checked{% endif %}>
-                            <span>ZDR Only</span>
+                            <span>Sola ZDR</span>
                         </label>
                         <label class="filter-toggle">
                             <input type="checkbox" name="zds" value="1" {% if filter_zds %}checked{% endif %}>
-                            <span>ZDS Only</span>
+                            <span>Sola ZDS</span>
                         </label>
                         <label class="filter-toggle">
                             <input type="checkbox" name="tee" value="1" {% if filter_tee %}checked{% endif %}>
-                            <span>TEE Only</span>
+                            <span>Sola TEE</span>
                         </label>
                     </div>
                 </form>
@@ -75,68 +74,47 @@
                         </svg>
                     </div>
                     {% if search_query.is_empty() %}
-                    <h3>No Models Available</h3>
-                    <p>There are currently no active models on the DeadRouter network. Please check your provider
-                        configuration or try again later.</p>
+                    <h3>Nulli Spiritus Devincti</h3>
+                    <p>Nulli spiritus hac hora in DeadRouter excitati sunt. Comproba configurationem tuam.</p>
                     {% else %}
-                    <h3>No Models Found</h3>
-                    <p>We couldn't find any models matching "<span class="highlight">{{ search_query }}</span>". Try
-                        adjusting your search query.</p>
-                    <a href="/models" class="btn btn-secondary btn-sm mt-sm">Clear Search</a>
+                    <h3>Spiritus Non Inventus</h3>
+                    <p>Nullum spiritum invenimus qui respondeat verbis "<span class="highlight">{{ search_query }}</span>". Emenda formulam.</p>
+                    <a href="/models" class="btn btn-secondary btn-sm mt-sm">Renova Evocationem</a>
                     {% endif %}
                 </div>
                 {% else %}
                 {% for item in models %}
                 <div class="model-card">
                     <div class="model-header">
-                        <div class="model-title-group">
-                            {% if item.logo_svg.is_some() %}
-                            <img src="{{ item.logo_svg.as_ref().unwrap() }}" alt="{{ item.name }} logo"
-                                class="model-logo-img" />
-                            {% else %}
-                            <div class="model-logo-placeholder">{{ item.logo_letter }}</div>
-                            {% endif %}
-                            <h4>{{ item.name }}</h4>
-                        </div>
+                        <h4>{{ item.name }}</h4>
                         <span class="status-dot has-tooltip"
-                            data-tooltip="Model is online. Anonymous routing verified."></span>
+                            data-tooltip="Spiritus vigilat. Linea communicandi tuta est."></span>
                     </div>
-
                     <p class="model-desc">{{ item.description }}</p>
 
                     <div class="model-tags-container">
                         <div class="security-tags">
                             {% if item.zdr %}
-                            <span class="tag tag-success has-tooltip"
-                                data-tooltip="Zero Data Retention (ZDR) supported.">✓ ZDR</span>
+                            <span class="tag tag-success has-tooltip" data-tooltip="Nulla Retentio Datorum (ZDR) fulta.">✓ ZDR</span>
                             {% else %}
-                            <span class="tag tag-error has-tooltip"
-                                data-tooltip="Zero Data Retention (ZDR) not supported.">✗ ZDR</span>
+                            <span class="tag tag-error has-tooltip" data-tooltip="Nulla Retentio Datorum (ZDR) deest.">✗ ZDR</span>
                             {% endif %}
 
                             {% if item.zds %}
-                            <span class="tag tag-success has-tooltip"
-                                data-tooltip="Zero Data Scanning (ZDS) supported.">✓ ZDS</span>
+                            <span class="tag tag-success has-tooltip" data-tooltip="Nulla Scrutatio Datorum (ZDS) fulta.">✓ ZDS</span>
                             {% else %}
-                            <span class="tag tag-error has-tooltip"
-                                data-tooltip="Zero Data Scanning (ZDS) not supported.">✗ ZDS</span>
+                            <span class="tag tag-error has-tooltip" data-tooltip="Nulla Scrutatio Datorum (ZDS) deest.">✗ ZDS</span>
                             {% endif %}
 
                             {% if item.tee %}
-                            <span class="tag tag-success has-tooltip"
-                                data-tooltip="Trusted Execution Environments (TEE) supported.">✓ TEE</span>
+                            <span class="tag tag-success has-tooltip" data-tooltip="Involucrum Securitatis (TEE) fultum.">✓ TEE</span>
                             {% else %}
-                            <span class="tag tag-error has-tooltip" data-tooltip="Standard infrastructure (No TEE).">✗
-                                TEE</span>
+                            <span class="tag tag-error has-tooltip" data-tooltip="Infrastructura communis (sine TEE).">✗ TEE</span>
                             {% endif %}
                         </div>
                         <div class="pricing-tags">
-                            <span class="tag tag-neutral has-tooltip"
-                                data-tooltip="Cheapest Price per 1 Million Input Tokens">In: ${{ item.price_input
-                                }}/M</span>
-                            <span class="tag tag-neutral has-tooltip"
-                                data-tooltip="Cheapest Price per 1 Million Output Tokens">Out: ${{ item.price_output
-                                }}/M</span>
+                            <span class="tag tag-neutral has-tooltip" data-tooltip="Vectigal per I decies centena milia segmentorum intrantium">Intra: ${{ item.price_input }}/M</span>
+                            <span class="tag tag-neutral has-tooltip" data-tooltip="Vectigal per I decies centena milia segmentorum exeuntium">Extra: ${{ item.price_output }}/M</span>
                         </div>
                     </div>
                 </div>
@@ -151,63 +129,44 @@
             <div class="footer-top">
                 <div class="footer-brand">
                     <a href="/" class="logo">
-                        DeadRouter<span class="blinker">_</span>
+                        DeadRouter
                     </a>
-                    <p>A highly secure, zero-data-retention anonymization gateway. Connect to top-tier AI providers
-                        without leaving a footprint.</p>
+                    <p>Aditus AI medii aevi et arcanus. Exue identitatem terrenam et cum spiritibus artificialibus mundi potentissimis sine nomine communica.</p>
 
                     <div class="infra-badges">
                         <div class="badge-modern has-tooltip"
-                            data-tooltip="Hosted in Chile, subject strictly to Chilean privacy laws and sovereign jurisdiction">
-                            <svg viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
-                                <path fill="#1F429B"
-                                    d="M13 5H4a4 4 0 0 0-4 4v9h13V5zm-4.663 9.292l-1.882-1.367l-1.882 1.367l.719-2.212l-1.882-1.368h2.326L6.455 8.5l.719 2.212H9.5L7.618 12.08l.719 2.212z">
-                                </path>
-                                <path fill="#EEE" d="M32 5H13v13h23V9a4 4 0 0 0-4-4z"></path>
-                                <path fill="#D42D27" d="M0 18v9a4 4 0 0 0 4 4h28a4 4 0 0 0 4-4v-9H0z"></path>
-                                <path fill="#FFF"
-                                    d="M7.174 10.712L6.455 8.5l-.719 2.212H3.41l1.882 1.368l-.719 2.212l1.882-1.367l1.882 1.367l-.719-2.212L9.5 10.712z">
-                                </path>
-                            </svg>
-                            Hosted in Chile
-                        </div>
-                        <div class="badge-modern has-tooltip"
-                            data-tooltip="AMD SEV-SNP Confidential Computing enclaves prevent host access to memory">
+                             data-tooltip="Reliquaria secreta AMD SEV-SNP memoriam contra inspectionem hospitis claudunt">
                             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" clip-rule="evenodd"
-                                    d="M9 1.25C9.41421 1.25 9.75 1.58579 9.75 2V3.26272C10.216 3.25376 10.7154 3.25111 11.25 3.25032V2C11.25 1.58579 11.5858 1.25 12 1.25C12.4142 1.25 12.75 1.58579 12.75 2V3.25032C13.2846 3.25111 13.784 3.25376 14.25 3.26272V2C14.25 1.58579 14.5858 1.25 15 1.25C15.4142 1.25 15.75 1.58579 15.75 2V3.32709C16.0099 3.34691 16.2561 3.37182 16.489 3.40313C17.6614 3.56076 18.6104 3.89288 19.3588 4.64124C20.1071 5.38961 20.4392 6.33855 20.5969 7.51098C20.6282 7.7439 20.6531 7.99006 20.6729 8.25H22C22.4142 8.25 22.75 8.58579 22.75 9C22.75 9.41421 22.4142 9.75 22 9.75H20.7373C20.7462 10.216 20.7489 10.7154 20.7497 11.25H22C22.4142 11.25 22.75 11.5858 22.75 12C22.75 12.4142 22.4142 12.75 22 12.75H20.7497C20.7489 13.2846 20.7462 13.784 20.7373 14.25H22C22.4142 14.25 22.75 14.5858 22.75 15C22.75 15.4142 22.4142 15.75 22 15.75H20.6729C20.6531 16.0099 20.6282 16.2561 20.5969 16.489C20.4392 17.6614 20.1071 18.6104 19.3588 19.3588C18.6104 20.1071 17.6614 20.4392 16.489 20.5969C16.2561 20.6282 16.0099 20.6531 15.75 20.6729V22C15.75 22.4142 15.4142 22.75 15 22.75C14.5858 22.75 14.25 22.4142 14.25 22V20.7373C13.784 20.7462 13.2846 20.7489 12.75 20.7497V22C12.75 22.4142 12.4142 22.75 12 22.75C11.5858 22.75 11.25 22.4142 11.25 22V20.7497C10.7154 20.7489 10.216 20.7462 9.75 20.7373V22C9.75 22.4142 9.41421 22.75 9 22.75C8.58579 22.75 8.25 22.4142 8.25 22V20.6729C7.99006 20.6531 7.7439 20.6282 7.51098 20.5969C6.33855 20.4392 5.38961 20.1071 4.64124 19.3588C3.89288 18.6104 3.56076 17.6614 3.40313 16.489C3.37182 16.2561 3.34691 16.0099 3.32709 15.75H2C1.58579 15.75 1.25 15.4142 1.25 15C1.25 14.5858 1.58579 14.25 2 14.25H3.26272C3.25376 13.784 3.25111 13.2846 3.25032 12.75H2C1.58579 12.75 1.25 12.4142 1.25 12C1.25 11.5858 1.58579 11.25 2 11.25H3.25032C3.25111 10.7154 3.25376 10.216 3.26272 9.75H2C1.58579 9.75 1.25 9.41421 1.25 9C1.25 8.58579 1.58579 8.25 2 8.25H3.32709C3.34691 7.99006 3.37182 7.7439 3.40313 7.51098C3.56076 6.33855 3.89288 5.38961 4.64124 4.64124C5.38961 3.89288 6.33855 3.56076 7.51098 3.40313C7.7439 3.37182 7.99006 3.34691 8.25 3.32709V2C8.25 1.58579 8.58579 1.25 9 1.25ZM7.71085 4.88976C6.70476 5.02502 6.12511 5.27869 5.7019 5.7019C5.27869 6.12511 5.02502 6.70476 4.88976 7.71085C4.75159 8.73851 4.75 10.0932 4.75 12C4.75 13.9068 4.75159 15.2615 4.88976 16.2892C5.02502 17.2952 5.27869 17.8749 5.7019 18.2981C6.12511 18.7213 6.70476 18.975 7.71085 19.1102C8.73851 19.2484 10.0932 19.25 12 19.25C13.9068 19.25 15.2615 19.2484 16.2892 19.1102C17.2952 18.975 17.8749 18.7213 18.2981 18.2981C18.7213 17.8749 18.975 17.2952 19.1102 16.2892C19.2484 15.2615 19.25 13.9068 19.25 12C19.25 10.0932 19.2484 8.73851 19.1102 7.71085C18.975 6.70476 18.7213 6.12511 18.2981 5.7019C17.8749 5.27869 17.2952 5.02502 16.2892 4.88976C15.2615 4.75159 13.9068 4.75 12 4.75C10.0932 4.75 8.73851 4.75159 7.71085 4.88976ZM9.95063 6.25H14.0494C14.7142 6.24996 15.2871 6.24993 15.7458 6.31161C16.2375 6.3777 16.7087 6.52676 17.091 6.90901C17.4732 7.29126 17.6223 7.76252 17.6884 8.25416C17.7501 8.7129 17.75 9.28577 17.75 9.95063V14.0494C17.75 14.7142 17.7501 15.2871 17.6884 15.7458C17.6223 16.2375 17.4732 16.7087 17.091 17.091C16.7087 17.4732 16.2375 17.6223 15.7458 17.6884C15.2871 17.7501 14.7142 17.75 14.0494 17.75H9.95063C9.28577 17.75 8.7129 17.7501 8.25416 17.6884C7.76252 17.6223 7.29126 17.4732 6.90901 17.091C6.52676 16.7087 6.3777 16.2375 6.31161 15.7458C6.24993 15.2871 6.24996 14.7142 6.25 14.0494V9.95063C6.24996 9.28577 6.24993 8.7129 6.31161 8.25416C6.3777 7.76252 6.52676 7.29126 6.90901 6.90901C7.29126 6.52676 7.76252 6.3777 8.25416 6.31161C8.7129 6.24993 9.28577 6.24996 9.95063 6.25ZM8.45403 7.79823C8.12872 7.84197 8.02676 7.91258 7.96967 7.96967C7.91258 8.02676 7.84197 8.12872 7.79823 8.45403C7.75159 8.80091 7.75 9.27169 7.75 10V14C7.75 14.7283 7.75159 15.1991 7.79823 15.546C7.84197 15.8713 7.91258 15.9732 7.96967 16.0303C8.02676 16.0874 8.12872 16.158 8.45403 16.2018C8.80091 16.2484 9.27169 16.25 10 16.25H14C14.7283 16.25 15.1991 16.2484 15.546 16.2018C15.8713 16.158 15.9732 16.0874 16.0303 16.0303C16.0874 15.9732 16.158 15.8713 16.2018 15.546C16.2484 15.1991 16.25 14.7283 16.25 14V10C16.25 9.27169 16.2484 8.80091 16.2018 8.45403C16.158 8.12872 16.0874 8.02676 16.0303 7.96967C15.9732 7.91258 15.8713 7.84197 15.546 7.79823C15.1991 7.75159 14.7283 7.75 14 7.75H10C9.27169 7.75 8.80091 7.75159 8.45403 7.79823Z"
-                                    fill="#E63946" />
+                                <path fill-rule="evenodd" clip-rule="evenodd" d="M9 1.25C9.41421 1.25 9.75 1.58579 9.75 2V3.26272C10.216 3.25376 10.7154 3.25111 11.25 3.25032V2C11.25 1.58579 11.5858 1.25 12 1.25C12.4142 1.25 12.75 1.58579 12.75 2V3.25032C13.2846 3.25111 13.784 3.25376 14.25 3.26272V2C14.25 1.58579 14.5858 1.25 15 1.25C15.4142 1.25 15.75 1.58579 15.75 2V3.32709C16.0099 3.34691 16.2561 3.37182 16.489 3.40313C17.6614 3.56076 18.6104 3.89288 19.3588 4.64124C20.1071 5.38961 20.4392 6.33855 20.5969 7.51098C20.6282 7.7439 20.6531 7.99006 20.6729 8.25H22C22.4142 8.25 22.75 8.58579 22.75 9C22.75 9.41421 22.4142 9.75 22 9.75H20.7373C20.7462 10.216 20.7489 10.7154 20.7497 11.25H22C22.4142 11.25 22.75 11.5858 22.75 12C22.75 12.4142 22.4142 12.75 22 12.75H20.7497C20.7489 13.2846 20.7462 13.784 20.7373 14.25H22C22.4142 14.25 22.75 14.5858 22.75 15C22.75 15.4142 22.4142 15.75 22 15.75H20.6729C20.6531 16.0099 20.6282 16.2561 20.5969 16.489C20.4392 17.6614 20.1071 18.6104 19.3588 19.3588C18.6104 20.1071 17.6614 20.4392 16.489 20.5969C16.2561 20.6282 16.0099 20.6531 15.75 20.6729V22C15.75 22.4142 15.4142 22.75 15 22.75C14.5858 22.75 14.25 22.4142 14.25 22V20.7373C13.784 20.7462 13.2846 20.7489 12.75 20.7497V22C12.75 22.4142 12.4142 22.75 12 22.75C11.5858 22.75 11.25 22.4142 11.25 22V20.7497C10.7154 20.7489 10.216 20.7462 9.75 20.7373V22C9.75 22.4142 9.41421 22.75 9 22.75C8.58579 22.75 8.25 22.4142 8.25 22V20.6729C7.99006 20.6531 7.7439 20.6282 7.51098 20.5969C6.33855 20.4392 5.38961 20.1071 4.64124 19.3588C3.89288 18.6104 3.56076 17.6614 3.40313 16.489C3.37182 16.2561 3.34691 16.0099 3.32709 15.75H2C1.58579 15.75 1.25 15.4142 1.25 15C1.25 14.5858 1.58579 14.25 2 14.25H3.26272C3.25376 13.784 3.25111 13.2846 3.25032 12.75H2C1.58579 12.75 1.25 12.4142 1.25 12C1.25 11.5858 1.58579 11.25 2 11.25H3.25032C3.25111 10.7154 3.25376 10.216 3.26272 9.75H2C1.58579 9.75 1.25 9.41421 1.25 9C1.25 8.58579 1.58579 8.25 2 8.25H3.32709C3.34691 7.99006 3.37182 7.7439 3.40313 7.51098C3.56076 6.33855 3.89288 5.38961 4.64124 4.64124C5.38961 3.89288 6.33855 3.56076 7.51098 3.40313C7.7439 3.37182 7.99006 3.34691 8.25 3.32709V2C8.25 1.58579 8.58579 1.25 9 1.25ZM7.71085 4.88976C6.70476 5.02502 6.12511 5.27869 5.7019 5.7019C5.27869 6.12511 5.02502 6.70476 4.88976 7.71085C4.75159 8.73851 4.75 10.0932 4.75 12C4.75 13.9068 4.75159 15.2615 4.88976 16.2892C5.02502 17.2952 5.27869 17.8749 5.7019 18.2981C6.12511 18.7213 6.70476 18.975 7.71085 19.1102C8.73851 19.2484 10.0932 19.25 12 19.25C13.9068 19.25 15.2615 19.2484 16.2892 19.1102C17.2952 18.975 17.8749 18.7213 18.2981 18.2981C18.7213 17.8749 18.975 17.2952 19.1102 16.2892C19.2484 15.2615 19.25 13.9068 19.25 12C19.25 10.0932 19.2484 8.73851 19.1102 7.71085C18.975 6.70476 18.7213 6.12511 18.2981 5.7019C17.8749 5.27869 17.2952 5.02502 16.2892 4.88976C15.2615 4.75159 13.9068 4.75 12 4.75C10.0932 4.75 8.73851 4.75159 7.71085 4.88976ZM9.95063 6.25H14.0494C14.7142 6.24996 15.2871 6.24993 15.7458 6.31161C16.2375 6.3777 16.7087 6.52676 17.091 6.90901C17.4732 7.29126 17.6223 7.76252 17.6884 8.25416C17.7501 8.7129 17.75 9.28577 17.75 9.95063V14.0494C17.75 14.7142 17.7501 15.2871 17.6884 15.7458C17.6223 16.2375 17.4732 16.7087 17.091 17.091C16.7087 17.4732 16.2375 17.6223 15.7458 17.6884C15.2871 17.7501 14.7142 17.75 14.0494 17.75H9.95063C9.28577 17.75 8.7129 17.7501 8.25416 17.6884C7.76252 17.6223 7.29126 17.4732 6.90901 17.091C6.52676 16.7087 6.3777 16.2375 6.31161 15.7458C6.24993 15.2871 6.24996 14.7142 6.25 14.0494V9.95063C6.24996 9.28577 6.24993 8.7129 6.31161 8.25416C6.3777 7.76252 6.52676 7.29126 6.90901 6.90901C7.29126 6.52676 7.76252 6.3777 8.25416 6.31161C8.7129 6.24993 9.28577 6.24996 9.95063 6.25ZM8.45403 7.79823C8.12872 7.84197 8.02676 7.91258 7.96967 7.96967C7.91258 8.02676 7.84197 8.12872 7.79823 8.45403C7.75159 8.80091 7.75 9.27169 7.75 10V14C7.75 14.7283 7.75159 15.1991 7.79823 15.546C7.84197 15.8713 7.91258 15.9732 7.96967 16.0303C8.02676 16.0874 8.12872 15.8713 8.45403 16.2018C8.80091 16.2484 9.27169 16.25 10 16.25H14C14.7283 16.25 15.1991 16.2484 15.546 16.2018C15.8713 16.158 15.9732 16.0874 16.0303 16.0303C16.0874 15.9732 16.158 15.8713 16.2018 15.546C16.2484 15.1991 16.25 14.7283 16.25 14V10C16.25 9.27169 16.2484 8.80091 16.2018 8.45403C16.158 8.12872 16.0874 8.02676 16.0303 7.96967C15.9732 7.91258 15.8713 7.84197 15.546 7.79823C15.1991 7.75159 14.7283 7.75 14 7.75H10C9.27169 7.75 8.80091 7.75159 8.45403 7.79823Z" fill="#c5a059" />
                             </svg>
-                            AMD SNP-SEV
+                            Reliquarium Arcanum
                         </div>
 
                         <div class="badge-modern has-tooltip"
-                            data-tooltip="Validated via AWS-LC (NIST Cert #4816) with userspace CPU Jitter Entropy">
+                             data-tooltip="Probatum per AWS-LC (NIST Cert #4816)">
                             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" clip-rule="evenodd"
-                                    d="M12 2C9.23858 2 7 4.23858 7 7V10H6C4.89543 10 4 10.8954 4 12V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V12C20 10.8954 19.1046 10 18 10H17V7C17 4.23858 14.7614 2 12 2ZM9 7V10H15V7C15 5.34315 13.6569 4 12 4C10.3431 4 9 5.34315 9 7ZM12 14.5C12.8284 14.5 13.5 15.1716 13.5 16C13.5 16.8284 12.8284 17.5 12 17.5C11.1716 17.5 10.5 16.8284 10.5 16C10.5 15.1716 11.1716 14.5 12 14.5Z"
-                                    fill="#10b981" />
+                                <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C9.23858 2 7 4.23858 7 7V10H6C4.89543 10 4 10.8954 4 12V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V12C20 10.8954 19.1046 10 18 10H17V7C17 4.23858 14.7614 2 12 2ZM9 7V10H15V7C15 5.34315 13.6569 4 12 4C10.3431 4 9 5.34315 9 7ZM12 14.5C12.8284 14.5 13.5 15.1716 13.5 16C13.5 16.8284 12.8284 17.5 12 17.5C11.1716 17.5 10.5 16.8284 10.5 16C10.5 15.1716 11.1716 14.5 12 14.5Z" fill="#2ebb7a" />
                             </svg>
-                            FIPS 140-3 Compliant
+                            Cryptographia Sacra
                         </div>
                     </div>
                 </div>
 
                 <div class="footer-links-group">
                     <div class="footer-col">
-                        <h4>Platform</h4>
-                        <a href="/models">Model Directory</a>
-                        <a href="/providers">Provider Database</a>
-                        <a href="/dashboard">Account Dashboard</a>
-                        <a href="/docs/api">API Documentation</a>
-                        <a href="/status">Network Status</a>
+                        <h4>Reliquarium Spirituale</h4>
+                        <a href="/models">Index Modelorum</a>
+                        <a href="/providers">Receptaculum Provisorum</a>
+                        <a href="/dashboard">Tabula Libera</a>
+                        <a href="/docs/api">Grimoirium API</a>
+                        <a href="/status">Status Aditus</a>
                     </div>
                     <div class="footer-col">
-                        <h4>Legal</h4>
-                        <a href="/tos">Terms of Service</a>
-                        <a href="/privacy">Privacy Policy</a>
-                        <a href="/fdap">FDPA / GDPR</a>
-                        <a href="/aup">Acceptable Use (AUP)</a>
+                        <h4>Legitima</h4>
+                        <a href="/tos">Foedera Ritus</a>
+                        <a href="/privacy">Foedus Secreti</a>
+                        <a href="/fdap">FDAP / GDPR</a>
+                        <a href="/aup">Evocatio Acceptabilis</a>
                     </div>
                 </div>
             </div>
@@ -215,9 +174,9 @@
             <div class="footer-bottom">
                 <div class="network-badges">
                     {% if onion_site.is_empty() %}
-                    <a href="#" class="tor-link offline" title="Tor connection is offline in development mode">
+                    <a href="#" class="tor-link offline" title="Nexus Tor deest in modo progressionis">
                         <span class="label tor">TOR</span>
-                        <span class="onion-address">offline (no active route)</span>
+                        <span class="onion-address">offline (sine nexu activo)</span>
                     </a>
                     {% else %}
                     <a href="https://{{ onion_site }}" rel="noopener noreferrer" class="tor-link">
@@ -226,7 +185,19 @@
                     </a>
                     {% endif %}
                 </div>
-                <p class="mono copyright">&copy; 2026 DeadRouter. 100% Open Source.</p>
+
+                <div class="language-selector mono">
+                    <span class="lang-label">Lingua:</span>
+                    <a href="/models" class="lang-link active">LA</a>
+                    <span class="lang-sep">|</span>
+                    <a href="/es/models" class="lang-link">ES</a>
+                    <span class="lang-sep">|</span>
+                    <a href="/en/models" class="lang-link">EN</a>
+                    <span class="lang-sep">|</span>
+                    <a href="/ja/models" class="lang-link">JA</a>
+                </div>
+
+                <p class="mono copyright">&copy; CXVII DeadRouter. 100% Liberum & Apertum.</p>
             </div>
         </div>
     </footer>
