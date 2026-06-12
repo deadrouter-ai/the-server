@@ -90,8 +90,6 @@ fn handle_not_found(
     (StatusCode::NOT_FOUND, headers, full_body(html_string))
 }
 
-/// Route an incoming request through the unified handler.
-/// Returns (status, headers, body) regardless of transport protocol.
 pub async fn router(
     state: &AppState,
     req: &IncomingRequest,
@@ -102,6 +100,7 @@ pub async fn router(
     if path == "/health"
         || path.starts_with("/logos/")
         || path.starts_with("/fonts/")
+        || path.starts_with("/static/")
         || path == "/favicon.ico"
         || path.starts_with("/v1/")
         || req.method == Method::OPTIONS
@@ -211,6 +210,54 @@ pub async fn router(
                 }
             }
 
+            // ---- Static Files ----
+            (Method::GET, path) if path.starts_with("/static/") => {
+                let filename = path.trim_start_matches("/static/");
+                
+                // Prevent path traversal
+                if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
+                    return (
+                        StatusCode::FORBIDDEN,
+                        vec![],
+                        Full::new(Bytes::new()).boxed(),
+                    );
+                }
+
+                let file_path = format!("static/{}", filename);
+                match std::fs::read(&file_path) {
+                    Ok(data) => {
+                        let mime_type = match filename.split('.').next_back() {
+                            Some("png") => "image/png",
+                            Some("jpg") | Some("jpeg") => "image/jpeg",
+                            Some("ico") => "image/x-icon",
+                            Some("svg") => "image/svg+xml",
+                            Some("webmanifest") => "application/manifest+json",
+                            Some("txt") => "text/plain; charset=utf-8",
+                            Some("css") => "text/css; charset=utf-8",
+                            Some("js") => "application/javascript; charset=utf-8",
+                            _ => "application/octet-stream",
+                        };
+
+                        let body = Full::new(Bytes::from(data)).map_err(|e| match e {}).boxed();
+                        return (
+                            StatusCode::OK,
+                            vec![
+                                ("Content-Type", mime_type.into()),
+                                ("Cache-Control", "public, max-age=31536000, immutable".into()),
+                            ],
+                            body,
+                        );
+                    }
+                    Err(_) => {
+                        return (
+                            StatusCode::NOT_FOUND,
+                            vec![],
+                            Full::new(Bytes::new()).boxed(),
+                        );
+                    }
+                }
+            }
+
             // ---- Favicon ----
             (Method::GET, "/favicon.ico") => {
                 let icon_bytes = include_bytes!("../../static/favicon.ico");
@@ -251,7 +298,14 @@ pub async fn router(
                 return crate::routes::api::keys::handle_nearai_model_key(state, req).await;
             }
 
-            _ => {}
+            // ---- Fallback 404 page ----
+            (_, _) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    vec![],
+                    full_body(String::new()),
+                );
+            }
         }
     }
 

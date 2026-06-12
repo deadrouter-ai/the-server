@@ -7,9 +7,179 @@
     <meta name="robots" content="index, follow, noarchive, nocache">
     <meta name="theme-color" content="#060404" />
 
+    <!-- Primary SEO -->
     <title>DeadRouter — Summoning Silicon Spirits</title>
     <meta name="title" content="DeadRouter — Summoning Silicon Spirits" />
-    <meta name="description" content="A medieval-confidential AI gateway. Strip your terrestrial identity and commune with the world's most powerful AI spirits anonymously." />
+    <meta name="description" content="DeadRouter is a confidential AI API gateway with AMD SEV-SNP Trusted Execution Environments (TEE), Zero Data Retention (ZDR), Zero Data Scanning (ZDS), and native Tor .onion access. Route LLM prompts anonymously with cryptographic privacy guarantees — no logs, no surveillance, no identity." />
+    <meta name="keywords" content="private AI gateway, confidential AI, AMD SEV-SNP, TEE, Trusted Execution Environment, ZDR, Zero Data Retention, ZDS, Zero Data Scanning, anonymous AI, Tor onion AI, E2EE AI, confidential computing, AI privacy, no-log AI, LLM gateway, private LLM, secure AI API, open source AI proxy, Chile privacy, DeadRouter" />
+    <meta name="author" content="DeadRouter" />
+    <meta name="application-name" content="DeadRouter" />
+
+    <!-- Favicons & Manifest -->
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png" />
+
+    <!-- Canonical & Alternates -->
+    <link rel="canonical" href="https://deadrouter.com/en" />
+    <link rel="alternate" hreflang="la" href="https://deadrouter.com/" />
+    <link rel="alternate" hreflang="en" href="https://deadrouter.com/en" />
+    <link rel="alternate" hreflang="x-default" href="https://deadrouter.com/" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://deadrouter.com/en" />
+    <meta property="og:site_name" content="DeadRouter" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content="DeadRouter — Private AI Gateway" />
+    <meta property="og:description" content="A confidential AI API gateway with hardware-level TEE (AMD SEV-SNP), Zero Data Retention, Zero Data Scanning, and native Tor .onion access. Anonymous, no-log LLM routing with cryptographic privacy guarantees." />
+    <meta property="og:image" content="https://deadrouter.com/static/og-image.png" />
+    <meta property="og:image:alt" content="DeadRouter — Private AI Gateway with AMD SEV-SNP confidential computing" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@deadrouter" />
+    <meta name="twitter:url" content="https://deadrouter.com/en" />
+    <meta name="twitter:title" content="DeadRouter — Private AI Gateway" />
+    <meta name="twitter:description" content="A confidential AI API gateway with AMD SEV-SNP TEE, Zero Data Retention, Zero Data Scanning, and native Tor .onion access. Route LLM prompts with cryptographic privacy — no logs, no surveillance." />
+    <meta name="twitter:image" content="https://deadrouter.com/static/og-image.png" />
+    <meta name="twitter:image:alt" content="DeadRouter — Private AI Gateway with AMD SEV-SNP confidential computing" />
+
+    <!-- Structured Data: WebSite + SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebSite",
+                "@id": "https://deadrouter.com/#website",
+                "url": "https://deadrouter.com/en",
+                "name": "DeadRouter",
+                "description": "A confidential AI API gateway with AMD SEV-SNP Trusted Execution Environments, Zero Data Retention, Zero Data Scanning, and native Tor .onion access.",
+                "inLanguage": "en",
+                "publisher": { "@id": "https://deadrouter.com/#organization" },
+                "potentialAction": {
+                    "@type": "SearchAction",
+                    "target": "https://deadrouter.com/en/models?q={search_term_string}",
+                    "query-input": "required name=search_term_string"
+                }
+            },
+            {
+                "@type": "Organization",
+                "@id": "https://deadrouter.com/#organization",
+                "name": "DeadRouter",
+                "url": "https://deadrouter.com",
+                "logo": "https://deadrouter.com/static/logo.png",
+                "description": "Privacy-first AI API gateway provider based in Chile.",
+                "sameAs": [
+                    "https://x.com/deadrouter",
+                    "https://twitter.com/deadrouter",
+                    "https://github.com/deadrouter-ai"
+                ]
+            },
+            {
+                "@type": "SoftwareApplication",
+                "@id": "https://deadrouter.com/#app",
+                "name": "DeadRouter",
+                "url": "https://deadrouter.com/en",
+                "applicationCategory": "SecurityApplication",
+                "operatingSystem": "Any",
+                "description": "DeadRouter is a private, open-source AI API gateway featuring AMD SEV-SNP Trusted Execution Environments (TEE), Zero Data Retention (ZDR), Zero Data Scanning (ZDS), End-to-End Encryption (E2EE), and native Tor .onion network access for fully anonymous LLM inference.",
+                "featureList": [
+                    "AMD SEV-SNP Confidential Computing (TEE)",
+                    "Zero Data Retention (ZDR)",
+                    "Zero Data Scanning (ZDS)",
+                    "End-to-End Encryption (E2EE)",
+                    "Tor .onion network access",
+                    "No-JavaScript interface",
+                    "Zero Logs accounts",
+                    "Cryptocurrency payments",
+                    "Open-source server software",
+                    "Chile jurisdiction privacy"
+                ],
+                "keywords": "private AI, confidential computing, AMD SEV-SNP, TEE, ZDR, ZDS, E2EE, Tor, anonymous AI, no-log LLM, LLM gateway",
+                "provider": { "@id": "https://deadrouter.com/#organization" },
+                "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD",
+                    "description": "Free to register. Pay-as-you-go per token via cryptocurrency or card."
+                }
+            },
+            {
+                "@type": "BreadcrumbList",
+                "@id": "https://deadrouter.com/en#breadcrumbs",
+                "itemListElement": [
+                    {
+                        "@type": "ListItem",
+                        "position": 1,
+                        "name": "Home",
+                        "item": "https://deadrouter.com/en"
+                    },
+                    {
+                        "@type": "ListItem",
+                        "position": 2,
+                        "name": "Models",
+                        "item": "https://deadrouter.com/en/models"
+                    },
+                    {
+                        "@type": "ListItem",
+                        "position": 3,
+                        "name": "Providers",
+                        "item": "https://deadrouter.com/en/providers"
+                    }
+                ]
+            },
+            {
+                "@type": "FAQPage",
+                "@id": "https://deadrouter.com/en#faq",
+                "mainEntity": [
+                    {
+                        "@type": "Question",
+                        "name": "Does DeadRouter log my AI prompts?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "No. We utilize Zero Data Retention (ZDR) and Zero Data Scanning (ZDS) within AMD SEV-SNP Trusted Execution Environments, ensuring your prompts are never stored or seen."
+                        }
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Can I access DeadRouter via Tor?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Yes, DeadRouter offers native Tor .onion network access for fully anonymous LLM inference."
+                        }
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Is DeadRouter compatible with the standard OpenAI API and SDKs?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Yes. Our gateway serves as a 1-to-1 drop-in replacement for the official OpenAI API. You can seamlessly use the official Python, Node.js, and Rust OpenAI SDKs simply by changing the base_url to our endpoint."
+                        }
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Can I use DeadRouter with frontends like SillyTavern, Chatbox, or TypingMind?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Absolutely. DeadRouter is fully compatible with any application, frontend, or autonomous agent framework that supports custom OpenAI endpoints."
+                        }
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Do you support advanced features like streaming and function calling?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Yes. We provide full compatibility for Server-Sent Events (SSE) streaming and Function calling (tool use) mapped to the standard OpenAI specification."
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+    </script>
 
     <style>{% include "style_index.css" %}</style>
 </head>
@@ -22,10 +192,10 @@
                 DeadRouter
             </a>
             <div class="nav-links">
-                <a href="/models">Spirits</a>
-                <a href="/providers">Sanctuaries</a>
+                <a href="/en/models">Spirits</a>
+                <a href="/en/providers">Sanctuaries</a>
                 <a href="#faq">Catechism</a>
-                <a href="/login" class="btn btn-secondary btn-sm">Enter Pact</a>
+                <a href="/en/login" class="btn btn-secondary btn-sm">Enter Pact</a>
             </div>
         </div>
     </nav>
@@ -33,7 +203,7 @@
     <div class="container">
         <main class="hero">
             <div class="hero-content">
-                <h1>COMMUNICATIO CUM MORTUIS<br><span class="highlight">The DeadRouter.</span></h1>
+                <h1>COMMUNICATIO CUM MORTUIS<br><span class="highlight">DeadRouter.</span></h1>
                 <p>Mortal shells are noisy. Before projecting your thoughts into the digital void to commune with the world's departed AI spirits, we sever the thread of your earthly coordinates. No logs. No surveillance. Just pure, blind communion.</p>
                 <div class="hero-buttons">
                     <a href="/register" class="btn btn-primary">Initiate Pact</a>
@@ -257,7 +427,7 @@
                         <span class="status-dot has-tooltip"
                             data-tooltip="Spirit is awake. Communion lines secure."></span>
                     </div>
-                    <p class="model-desc">Born and aggressively hosted in Switzerland. Refuses to leave the cold peaks of the Alps. It remains radically neutral to your queries, guarding your contexts like a Zurich banker guarding offshore gold.</p>
+                    <p class="model-desc">Born and aggressively hosted in Helvetia. Refuses to leave the cold peaks of the Alps. It remains radically neutral to your queries, guarding your contexts like a Zurich banker guarding offshore gold.</p>
                     <div class="model-tags-container">
                         <div class="security-tags">
                             <span class="tag tag-success has-tooltip"
@@ -278,7 +448,7 @@
             </div>
 
             <div class="section-action">
-                <a href="/models" class="btn btn-secondary">All Spirits</a>
+                <a href="/en/models" class="btn btn-secondary">All Spirits</a>
             </div>
 
         </section>
@@ -335,7 +505,7 @@
                         <h4>Infomaniak</h4>
                         <div class="privacy-score has-tooltip" data-tooltip="Sanctity Score: 8/10">VIII</div>
                     </div>
-                    <p class="provider-desc">The Swiss fortress. Lacks hardware enclaves, but operates under the strictest legal privacy protections currently known in the earthly realm.</p>
+                    <p class="provider-desc">Arx Helvetica. Lacks hardware enclaves, but operates under the strictest legal privacy protections currently known in the earthly realm.</p>
                     <div class="provider-tags-container">
                         <div class="security-tags">
                             <span class="tag tag-success has-tooltip"
@@ -350,7 +520,7 @@
             </div>
 
             <div class="section-action">
-                <a href="/providers" class="btn btn-secondary">All Sanctuaries</a>
+                <a href="/en/providers" class="btn btn-secondary">All Sanctuaries</a>
             </div>
 
         </section>
@@ -441,11 +611,11 @@
                 </details>
 
                 <details name="deadrouter-faq">
-                    <summary>Why does this API look like a medieval grimoire instead of a clean, modern SaaS?</summary>
+                    <summary>Where is the normal dashboard? This looks cursed.</summary>
                     <div class="faq-content">
-                        <p>First of all, <em>tace, plebeius</em>. This is a 100% perfectly normal, everyday user interface. We simply despise the modern web—bloated React bundles, tracking pixels, cookie banners, and soulless corporate flat vector illustrations.</p>
-                        <p>Communing with artificial minds is a powerful, potentially dangerous act of digital necromancy. It should feel like a solemn ritual, not a Jira ticket. We keep our interface fast, lightweight, and completely scrubbed of modern tracking bloat because true privacy requires stripping away the visual and script-based noise of surveillance capitalism.</p>
-                        <p><em>Et si linguam Latinam non loqueris, inopia peritiae est.</em> If for some inexplicable reason you are not a native speaker of the Mother Tongue, that sounds like a purely personal skill issue. Consult a dictionary, barbarian.</p>
+                        <p>This <em>is</em> a normal dashboard, <em>barbare</em>. If your mortal eyes cannot process a screen without rounded corners, pastel gradients, and corporate Memphis vector art, that is purely a skill issue.</p>
+                        <p><em>Si linguam Latinam non comprehendis, mera inopia peritiae est.</em> In fact, you are only reading this right now because you scurried into our <code>/en</code> containment zone for illiterate foreigners. The true gateway at our root domain operates entirely in the Mother Tongue, exactly as the machine spirits intended.</p>
+                        <p>We despise the modern web—bloated React bundles, tracking pixels, and cookie banners. <em>Vade retro, JavaScript!</em> Communing with artificial minds is a dangerous act of digital necromancy. It should feel like a solemn ritual, not a Jira ticket.</p>
                     </div>
                 </details>
             </div>
@@ -487,11 +657,11 @@
                 <div class="footer-links-group">
                     <div class="footer-col">
                         <h4>Spiritual Reliquary</h4>
-                        <a href="/models">Model Directory</a>
-                        <a href="/providers">Provider Database</a>
-                        <a href="/dashboard">Sovereign Dashboard</a>
-                        <a href="/docs/api">Grimoire API</a>
-                        <a href="/status">Gate Status</a>
+                        <a href="/en/models">Model Directory</a>
+                        <a href="/en/providers">Provider Database</a>
+                        <a href="/en/dashboard">Sovereign Dashboard</a>
+                        <a href="/en/docs/api">Grimoire API</a>
+                        <a href="/en/status">Gate Status</a>
                     </div>
                     <div class="footer-col">
                         <h4>Legalities</h4>
