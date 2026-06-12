@@ -282,22 +282,31 @@ pub async fn handle_secure_openai_proxy(
             continue;
         }
 
+        let ctx = crate::providers::ProviderCallContext {
+            chat_id: chat_id.clone(),
+            client_wants_usage,
+            frontend_requested_model: model_name.clone(),
+            e2ee_session: e2ee_session.clone(),
+            pii_map_arc: pii_map_arc.clone(),
+            nearai_passthrough_pubkey: nearai_passthrough_pubkey.clone(),
+        };
+
         // Dispatch based on provider ID
         let result = match provider.id.as_str() {
             "near-ai" => {
-                call_near_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone(), nearai_passthrough_pubkey.clone(), pii_map_arc.clone()).await
+                call_near_ai(state, &provider, proxy_req.clone(), ctx).await
             }
             "chutes" => {
-                crate::providers::chutes::call_chutes_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone(), pii_map_arc.clone()).await
+                crate::providers::chutes::call_chutes_ai(state, &provider, proxy_req.clone(), ctx).await
             }
             "redpill" => {
-                crate::providers::redpill::call_redpill_ai(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone(), pii_map_arc.clone()).await
+                crate::providers::redpill::call_redpill_ai(state, &provider, proxy_req.clone(), ctx).await
             }
             "infomaniak" => {
-                crate::providers::infomaniak::call_infomaniak(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone(), pii_map_arc.clone()).await
+                crate::providers::infomaniak::call_infomaniak(state, &provider, proxy_req.clone(), ctx).await
             }
             "tinfoil" => {
-                crate::providers::tinfoil::call_tinfoil(state, &provider, proxy_req.clone(), chat_id.clone(), client_wants_usage, model_name.clone(), e2ee_session.clone(), pii_map_arc.clone()).await
+                crate::providers::tinfoil::call_tinfoil(state, &provider, proxy_req.clone(), ctx).await
             }
             _ => {
                 Err(format!("Provider {} not implemented.", provider.id))

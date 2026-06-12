@@ -68,18 +68,16 @@ pub fn sanitize_and_spoof_response(
                         let allowed_msg_fields = ["role", "content", "tool_calls", "function_call", "refusal"];
                         for field in allowed_msg_fields {
                             if let Some(mut val) = msg_obj.remove(field) {
-                                if field == "content" {
-                                    if let Some(s) = val.as_str() {
-                                        let mut text = s.to_string();
-                                        if let Some(ref mut unredactor) = unredactor {
-                                            text = unredactor.process_chunk(&text);
-                                            text.push_str(&unredactor.flush()); // non-streaming usually finishes here
-                                        }
-                                        if let Some(ref mut ratchet) = e2ee_ratchet {
-                                            val = Value::String(ratchet.encrypt_chunk(text.as_bytes()));
-                                        } else {
-                                            val = Value::String(text);
-                                        }
+                                if field == "content" && let Some(s) = val.as_str() {
+                                    let mut text = s.to_string();
+                                    if let Some(ref mut unredactor) = unredactor {
+                                        text = unredactor.process_chunk(&text);
+                                        text.push_str(&unredactor.flush()); // non-streaming usually finishes here
+                                    }
+                                    if let Some(ref mut ratchet) = e2ee_ratchet {
+                                        val = Value::String(ratchet.encrypt_chunk(text.as_bytes()));
+                                    } else {
+                                        val = Value::String(text);
                                     }
                                 }
                                 clean_msg.insert(field.to_string(), val);
@@ -108,17 +106,15 @@ pub fn sanitize_and_spoof_response(
                         let allowed_delta_fields = ["role", "content", "tool_calls", "function_call", "refusal"];
                         for field in allowed_delta_fields {
                             if let Some(mut val) = delta_obj.remove(field) {
-                                if field == "content" {
-                                    if let Some(s) = val.as_str() {
-                                        let mut text = s.to_string();
-                                        if let Some(ref mut unredactor) = unredactor {
-                                            text = unredactor.process_chunk(&text);
-                                        }
-                                        if let Some(ref mut ratchet) = e2ee_ratchet {
-                                            val = Value::String(ratchet.encrypt_chunk(text.as_bytes()));
-                                        } else {
-                                            val = Value::String(text);
-                                        }
+                                if field == "content" && let Some(s) = val.as_str() {
+                                    let mut text = s.to_string();
+                                    if let Some(ref mut unredactor) = unredactor {
+                                        text = unredactor.process_chunk(&text);
+                                    }
+                                    if let Some(ref mut ratchet) = e2ee_ratchet {
+                                        val = Value::String(ratchet.encrypt_chunk(text.as_bytes()));
+                                    } else {
+                                        val = Value::String(text);
                                     }
                                 }
                                 clean_delta.insert(field.to_string(), val);

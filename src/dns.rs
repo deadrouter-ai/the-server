@@ -522,13 +522,12 @@ impl Resolve for CustomDnscryptResolver {
         Box::pin(async move {
             {
                 let cache_read = resolver.cache.read().await;
-                if let Some((ip, time)) = cache_read.get(&domain) {
-                    if time.elapsed() < std::time::Duration::from_secs(300) {
+                if let Some((ip, time)) = cache_read.get(&domain)
+                    && time.elapsed() < std::time::Duration::from_secs(300) {
                         tracing::debug!("Using cached DNS for {}", domain);
                         let addrs: Box<dyn Iterator<Item = SocketAddr> + Send> = Box::new(std::iter::once(SocketAddr::new(*ip, 0)));
                         return Ok(addrs);
                     }
-                }
             }
 
             tracing::debug!("Resolving {} via DNSCrypt...", domain);

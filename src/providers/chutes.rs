@@ -610,11 +610,7 @@ pub async fn call_chutes_ai(
     state: &AppState,
     provider: &Arc<ProviderConfig>,
     mut proxy_req: ChatCompletionRequest,
-    chat_id: String,
-    client_wants_usage: bool,
-    frontend_requested_model: String,
-    e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
-    pii_map_arc: std::sync::Arc<crate::utils::redaction::PiiMap>,
+    ctx: crate::providers::ProviderCallContext,
 ) -> Result<BoxBody<Bytes, std::convert::Infallible>, String> {
     if proxy_req.stream { proxy_req.stream_options = Some(StreamOptions { include_usage: true }); }
 
@@ -622,7 +618,7 @@ pub async fn call_chutes_ai(
     let models_base = "https://llm.chutes.ai";
     let current_ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
-    let model_info = crate::utils::models::get_dynamic_model_info(provider, &frontend_requested_model).await?;
+    let model_info = crate::utils::models::get_dynamic_model_info(provider, &ctx.frontend_requested_model).await?;
 
     let chute_id = {
         let state_read = provider.dynamic_state.read().await;
@@ -762,12 +758,12 @@ pub async fn call_chutes_ai(
         }
 
         return process_chutes_response(
-            upstream_resp, proxy_req.stream, client_wants_usage, chat_id,
-            frontend_requested_model, provider.id.clone(),
+            upstream_resp, proxy_req.stream, ctx.client_wants_usage, ctx.chat_id,
+            ctx.frontend_requested_model, provider.id.clone(),
             model_info.price_input_1m, model_info.price_output_1m,
             e2ee_req.response_sk,
-            e2ee_session,
-            pii_map_arc.clone(),
+            ctx.e2ee_session,
+            ctx.pii_map_arc.clone(),
         ).await;
     }
 

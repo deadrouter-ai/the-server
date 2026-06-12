@@ -90,12 +90,16 @@ pub async fn call_tinfoil(
     state: &AppState,
     provider: &Arc<ProviderConfig>,
     proxy_req: ChatCompletionRequest,
-    chat_id: String,
-    client_wants_usage: bool,
-    frontend_requested_model: String,
-    e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
-    pii_map_arc: std::sync::Arc<crate::utils::redaction::PiiMap>,
+    ctx: crate::providers::ProviderCallContext,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
+    let crate::providers::ProviderCallContext {
+        chat_id,
+        client_wants_usage,
+        frontend_requested_model,
+        e2ee_session,
+        pii_map_arc,
+        ..
+    } = ctx;
     
     let model_info = crate::utils::models::get_dynamic_model_info(provider, &frontend_requested_model).await?;
 

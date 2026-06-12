@@ -67,13 +67,7 @@ impl DosProtection {
     pub fn try_acquire_connection(self: &std::sync::Arc<Self>, ip: IpAddr) -> Option<ConnectionGuard> {
         let ipv4 = match ip {
             IpAddr::V4(v4) => v4,
-            IpAddr::V6(v6) => {
-                if let Some(v4) = v6.to_ipv4_mapped() {
-                    v4
-                } else {
-                    return None;
-                }
-            }
+            IpAddr::V6(v6) => v6.to_ipv4_mapped()?,
         };
 
         if self.global_connections.load(std::sync::atomic::Ordering::Relaxed) >= 15000 {
@@ -102,11 +96,10 @@ impl DosProtection {
 
     pub(crate) fn decrement_connection(&self, ipv4: Ipv4Addr) {
         self.global_connections.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
-        if let Ok(mut ips) = self.ips.lock() {
-            if let Some(state) = ips.get_mut(&ipv4) {
+        if let Ok(mut ips) = self.ips.lock()
+            && let Some(state) = ips.get_mut(&ipv4) {
                 state.active_connections = state.active_connections.saturating_sub(1);
             }
-        }
     }
 
     /// Returns `Ok(())` if allowed, `Err(retry_after_secs)` if rate limited or banned.

@@ -21,6 +21,7 @@ pub fn get_security_headers(style_hash: &str) -> Vec<(&'static str, String)> {
              base-uri 'none'; \
              frame-ancestors 'none'; \
              img-src 'self'; \
+             font-src 'self'; \
              upgrade-insecure-requests;",
             style_hash
         )),

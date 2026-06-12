@@ -768,18 +768,21 @@ async fn process_near_ai_response(
 /// Orchestrates dynamic routing, memory locking for attestation keys, encryption
 /// of chat parameters, enforcing connection verification, and delegating the final
 /// output to `process_near_ai_response`.
-#[allow(clippy::too_many_arguments)]
 pub async fn call_near_ai(
     state: &AppState,
     provider: &Arc<ProviderConfig>,
     mut proxy_req: ChatCompletionRequest,
-    chat_id: String,
-    client_wants_usage: bool,
-    frontend_requested_model: String,
-    e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
-    nearai_passthrough_pubkey: Option<String>,
-    pii_map_arc: std::sync::Arc<crate::utils::redaction::PiiMap>,
+    ctx: crate::providers::ProviderCallContext,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
+    let crate::providers::ProviderCallContext {
+        chat_id,
+        client_wants_usage,
+        frontend_requested_model,
+        e2ee_session,
+        pii_map_arc,
+        nearai_passthrough_pubkey,
+    } = ctx;
+
     if proxy_req.stream { proxy_req.stream_options = Some(StreamOptions { include_usage: true }); }
 
     let model_info = crate::utils::models::get_dynamic_model_info(provider, &frontend_requested_model).await?;

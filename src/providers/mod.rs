@@ -7,6 +7,17 @@ pub mod tinfoil;
 use serde_json::Value;
 use crate::{AppState, ProviderConfig};
 
+/// Bundles context variables for a secure provider call to keep signatures clean
+/// and avoid having too many function arguments.
+pub struct ProviderCallContext {
+    pub chat_id: String,
+    pub client_wants_usage: bool,
+    pub frontend_requested_model: String,
+    pub e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
+    pub pii_map_arc: std::sync::Arc<crate::utils::redaction::PiiMap>,
+    pub nearai_passthrough_pubkey: Option<String>,
+}
+
 /// Connects to a provider's models endpoint (derived from the chat completions endpoint),
 /// retrieves upstream prices, and writes them to the provider's dynamic state.
 pub async fn fetch_and_update_prices(state: &AppState, provider: &ProviderConfig) -> Result<(), String> {

@@ -100,12 +100,23 @@ const MODELS_CSS: &str = include_str!("../../templates/style_models.css");
 
 fn get_style_hash() -> &'static str {
     static HASH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-    HASH.get_or_init(|| crate::utils::http::compute_sha512_b64(MODELS_CSS))
+    HASH.get_or_init(|| crate::utils::http::compute_sha512_b64(MODELS_CSS.trim_end()))
 }
 
 #[derive(Template)]
-#[template(path = "models.html")]
-pub struct ModelsTemplate {
+#[template(path = "la/models.html")]
+pub struct ModelsTemplateLa {
+    pub onion_site: String,
+    pub models: Vec<RenderModelItem>,
+    pub search_query: String,
+    pub filter_zdr: bool,
+    pub filter_zds: bool,
+    pub filter_tee: bool,
+}
+
+#[derive(Template)]
+#[template(path = "en/models.html")]
+pub struct ModelsTemplateEn {
     pub onion_site: String,
     pub models: Vec<RenderModelItem>,
     pub search_query: String,
@@ -267,6 +278,7 @@ fn url_decode(s: &str) -> String {
 pub async fn handle_models_page(
     state: &AppState,
     req: &IncomingRequest,
+    locale: &str,
 ) -> (StatusCode, Vec<(&'static str, String)>, String) {
     // 1. Parse search query from URI
     let mut search_query = String::new();
@@ -373,24 +385,40 @@ pub async fn handle_models_page(
 
     model_items.sort_by(|a, b| compare_model_names(&a.name, &b.name));
 
-    // 3. Populate the Askama template
+    // 3. Populate and render the Askama template
     let onion_site = state.onion_data.read().unwrap().onion_domain.clone();
-    let template = ModelsTemplate { 
-        onion_site,
-        models: model_items,
-        search_query,
-        filter_zdr,
-        filter_zds,
-        filter_tee,
+    
+    let html_result = match locale {
+        "en" => {
+            let template = ModelsTemplateEn { 
+                onion_site,
+                models: model_items,
+                search_query,
+                filter_zdr,
+                filter_zds,
+                filter_tee,
+            };
+            template.render()
+        }
+        _ => {
+            let template = ModelsTemplateLa { 
+                onion_site,
+                models: model_items,
+                search_query,
+                filter_zdr,
+                filter_zds,
+                filter_tee,
+            };
+            template.render()
+        }
     };
 
-    // 4. Render the HTML
-    let html_string = match template.render() {
+    let html_string = match html_result {
         Ok(html) => html,
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, vec![], format!("Render failed: {}", e)),
     };
 
-    // 5. Build the Response with the headers
+    // 4. Build the Response with the headers
     let headers = crate::utils::http::get_security_headers(get_style_hash());
 
     (StatusCode::OK, headers, html_string)

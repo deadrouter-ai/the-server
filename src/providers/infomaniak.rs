@@ -71,13 +71,9 @@ pub async fn call_infomaniak(
     state: &AppState,
     provider: &Arc<ProviderConfig>,
     mut proxy_req: ChatCompletionRequest,
-    chat_id: String,
-    _client_wants_usage: bool,
-    frontend_requested_model: String,
-    e2ee_session: Option<std::sync::Arc<crate::crypto_e2ee::E2eeSession>>,
-    pii_map_arc: std::sync::Arc<crate::utils::redaction::PiiMap>,
+    ctx: crate::providers::ProviderCallContext,
 ) -> Result<BoxBody<Bytes, Infallible>, String> {
-    let model_info = crate::utils::models::get_dynamic_model_info(provider, &frontend_requested_model).await?;
+    let model_info = crate::utils::models::get_dynamic_model_info(provider, &ctx.frontend_requested_model).await?;
 
     // Infomaniak (specifically Llama-3 based models) strictly enforces that `system`
     // can only be the very first message, and there can only be one.
@@ -105,12 +101,12 @@ pub async fn call_infomaniak(
         state,
         provider,
         proxy_req,
-        chat_id,
-        frontend_requested_model,
+        ctx.chat_id,
+        ctx.frontend_requested_model,
         model_info.upstream_model_name,
         model_info.price_input_1m,
         model_info.price_output_1m,
-        e2ee_session,
-        pii_map_arc,
+        ctx.e2ee_session,
+        ctx.pii_map_arc,
     ).await
 }

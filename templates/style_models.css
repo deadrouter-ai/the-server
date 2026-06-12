@@ -634,6 +634,64 @@
             transform: translateY(0);
         }
 
+        .pricing-tags .tag:nth-child(1)::after {
+            left: 0;
+            transform: translateX(0) translateY(8px);
+        }
+
+        .pricing-tags .tag:nth-child(1):hover::after {
+            transform: translateX(0) translateY(0);
+        }
+
+        .pricing-tags .tag:nth-child(1)::before {
+            left: 20px;
+            transform: translateY(8px);
+        }
+
+        .pricing-tags .tag:nth-child(1):hover::before {
+            transform: translateY(0);
+        }
+
+        .pricing-tags .tag:nth-child(2)::after {
+            left: auto;
+            right: 0;
+            transform: translateX(0) translateY(8px);
+        }
+
+        .pricing-tags .tag:nth-child(2):hover::after {
+            transform: translateX(0) translateY(0);
+        }
+
+        .pricing-tags .tag:nth-child(2)::before {
+            left: auto;
+            right: 20px;
+            transform: translateY(8px);
+        }
+
+        .pricing-tags .tag:nth-child(2):hover::before {
+            transform: translateY(0);
+        }
+
+        .status-dot::after {
+            left: auto !important;
+            right: 0 !important;
+            transform: translateX(0) translateY(8px) !important;
+        }
+
+        .status-dot:hover::after {
+            transform: translateX(0) translateY(0) !important;
+        }
+
+        .status-dot::before {
+            left: auto !important;
+            right: 10px !important;
+            transform: translateY(8px) !important;
+        }
+
+        .status-dot:hover::before {
+            transform: translateY(0) !important;
+        }
+
         /* --- EMPTY STATE --- */
         .empty-state-card {
             grid-column: 1 / -1;
@@ -711,6 +769,10 @@
         }
 
         @media (max-width: 768px) {
+            .container {
+                padding: 0 1.25rem;
+            }
+
             .nav-container {
                 flex-direction: column;
                 gap: 0.75rem;
@@ -719,7 +781,7 @@
 
             .nav-links {
                 display: flex;
-                gap: 1.5rem;
+                gap: 1rem;
                 flex-wrap: wrap;
                 justify-content: center;
             }
@@ -732,6 +794,19 @@
         @media (max-width: 480px) {
             .container {
                 padding: 0 1rem;
+            }
+
+            .model-card {
+                padding: 1.5rem 1.25rem;
+            }
+
+            .tag {
+                font-size: 0.75rem;
+                padding: 0.2rem 0.35rem;
+            }
+
+            .security-tags {
+                gap: 0.35rem;
             }
         }
 
@@ -1056,4 +1131,3 @@
                 display: none;
             }
         }
-    

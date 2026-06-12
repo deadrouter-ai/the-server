@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="la">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#060404" />
+
+    <title>404 — Sacrarium Non Inventum</title>
+    <style>/* latin */
+@font-face {
+    font-family: 'Cinzel';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/fonts/cinzel-400-normal.woff2') format('woff2');
+}
+
+/* latin */
+@font-face {
+    font-family: 'Cinzel';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('/fonts/cinzel-700-normal.woff2') format('woff2');
+}
+
+/* latin */
+@font-face {
+    font-family: 'Cinzel';
+    font-style: normal;
+    font-weight: 900;
+    font-display: swap;
+    src: url('/fonts/cinzel-900-normal.woff2') format('woff2');
+}
+
+/* latin */
+@font-face {
+    font-family: 'Cormorant Garamond';
+    font-style: italic;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/fonts/cormorantgaramond-400-italic.woff2') format('woff2');
+}
+
+/* latin */
+@font-face {
+    font-family: 'Cormorant Garamond';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/fonts/cormorantgaramond-400-normal.woff2') format('woff2');
+}
+
+/* latin */
+@font-face {
+    font-family: 'Cormorant Garamond';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('/fonts/cormorantgaramond-600-normal.woff2') format('woff2');
+}
+
+/* latin */
+@font-face {
+    font-family: 'Cormorant Garamond';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('/fonts/cormorantgaramond-700-normal.woff2') format('woff2');
+}
+
+/* latin */
+@font-face {
+    font-family: 'MedievalSharp';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/fonts/medievalsharp-400-normal.woff2') format('woff2');
+}
+
+/* latin */
+@font-face {
+    font-family: 'VT323';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/fonts/vt323-400-normal.woff2') format('woff2');
+}
+
+/* --- RITE & OCCULT DESIGN TOKENS --- */
+:root {
+    --bg-base: #060404;
+    --bg-surface: #0f0a0a;
+    --bg-elevated: #160f0f;
+
+    --accent: #8b1414;
+    /* Blood Red */
+    --accent-glow: rgba(139, 20, 20, 0.4);
+    --accent-gold: #c5a059;
+    /* Aged Gold */
+    --accent-gold-glow: rgba(197, 160, 89, 0.25);
+
+    --text-main: #ebdcb9;
+    /* Aged Parchment */
+    --text-muted: #a3937c;
+    --text-sub: #706250;
+    --border: rgba(197, 160, 89, 0.15);
+    --border-hover: rgba(197, 160, 89, 0.4);
+
+    --font-title: 'Cinzel', 'Georgia', serif;
+    --font-gothic: 'MedievalSharp', 'Cinzel', serif;
+    --font-body: 'Cormorant Garamond', 'Georgia', serif;
+    --font-mono: 'VT323', ui-monospace, monospace;
+
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* --- GLOBAL RESET & THEMED BASE --- */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-base);
+    color: var(--text-main);
+    font-family: var(--font-body);
+    font-size: 1.15rem;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+
+    /* Occult Vignette and Alchemy Grid Background */
+    background-image:
+        radial-gradient(circle at 50% 50%, rgba(139, 20, 20, 0.15) 0%, transparent 60%),
+        radial-gradient(circle at 10% 80%, rgba(197, 160, 89, 0.04) 0%, transparent 45%),
+        linear-gradient(rgba(197, 160, 89, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(197, 160, 89, 0.02) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 60px 60px, 60px 60px;
+    background-position: center center;
+    position: relative;
+}
+
+/* --- VOID CONTAINER & CARD --- */
+.void-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    position: relative;
+    z-index: 10;
+}
+
+.void-content {
+    background: rgba(15, 10, 10, 0.8);
+    border: 1px solid var(--border);
+    padding: 4rem 3rem;
+    max-width: 600px;
+    width: 100%;
+    text-align: center;
+    border-radius: var(--radius-md);
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.8), 0 0 35px rgba(139, 20, 20, 0.15);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    position: relative;
+    overflow: hidden;
+    transition: var(--transition);
+}
+
+.void-content:hover {
+    border-color: var(--border-hover);
+    box-shadow: 0 15px 55px rgba(0, 0, 0, 0.95), 0 0 45px rgba(139, 20, 20, 0.22);
+}
+
+/* --- OCCULT BADGES & DIVISION --- */
+.gothic-sigil {
+    font-size: 3.5rem;
+    color: var(--accent);
+    text-shadow: 0 0 15px var(--accent-glow);
+    margin-bottom: 0.5rem;
+    animation: sigilPulse 3s ease-in-out infinite;
+}
+
+.void-title {
+    font-size: 6rem;
+    font-family: var(--font-gothic);
+    color: var(--accent);
+    text-shadow: 0 0 25px var(--accent-glow);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    letter-spacing: -2px;
+}
+
+.void-subtitle {
+    font-family: var(--font-title);
+    font-size: 1.35rem;
+    color: var(--text-main);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    text-shadow: 0 0 8px rgba(235, 220, 185, 0.15);
+}
+
+.gothic-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    margin: 1.5rem 0 2rem;
+}
+
+.gothic-divider span {
+    display: block;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-gold), transparent);
+    width: 80px;
+}
+
+.gothic-divider::before {
+    content: '✦';
+    color: var(--accent-gold);
+    font-size: 0.9rem;
+    text-shadow: 0 0 5px var(--accent-gold-glow);
+}
+
+.void-description {
+    color: var(--text-muted);
+    font-size: 1.25rem;
+    line-height: 1.65;
+    margin-bottom: 2.5rem;
+}
+
+/* --- ACTIONS & BUTTONS --- */
+.void-actions {
+    display: flex;
+    justify-content: center;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.9rem 2rem;
+    font-family: var(--font-gothic);
+    font-size: 1.05rem;
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+    cursor: pointer;
+    border: 1px solid var(--accent-gold);
+    background-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 15px rgba(139, 20, 20, 0.4);
+    text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+    letter-spacing: 1px;
+}
+
+.btn:hover {
+    background-color: #a81c1c;
+    box-shadow: 0 0 25px rgba(197, 160, 89, 0.4);
+    transform: translateY(-2px);
+    border-color: #f0c880;
+}
+
+/* --- ANIMATIONS --- */
+@keyframes sigilPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.9;
+        text-shadow: 0 0 15px var(--accent-glow);
+    }
+    50% {
+        transform: scale(1.08);
+        opacity: 1;
+        text-shadow: 0 0 25px rgba(139, 20, 20, 0.7);
+        color: #ac1b1b;
+    }
+}
+
+/* --- RESPONSIVE INVOCATIONS --- */
+@media (max-width: 480px) {
+    .void-content {
+        padding: 2.5rem 1.5rem;
+    }
+
+    .void-title {
+        font-size: 4.5rem;
+    }
+
+    .void-subtitle {
+        font-size: 1.1rem;
+        letter-spacing: 2px;
+    }
+
+    .void-description {
+        font-size: 1.1rem;
+    }
+
+    .btn {
+        width: 100%;
+        padding: 0.85rem 1.5rem;
+    }
+}</style>
+</head>
+
+<body>
+
+    <div class="void-container">
+        <main class="void-content">
+            <div class="gothic-sigil">✠</div>
+            <h1 class="void-title">404</h1>
+            <h2 class="void-subtitle">SPIRITUS IN VAGATIONE ERANS</h2>
+            <div class="gothic-divider"></div>
+            <p class="void-description">
+                Coordinatae quas dedisti ad nullum sacrarium aut circulum arcanum ducunt. Spiritus quem quaeris in abyssum digitalem evanuit.
+            </p>
+            <div class="void-actions">
+                <a href="/" class="btn">Redi ad Portam Principalem</a>
+            </div>
+        </main>
+    </div>
+
+</body>
+</html>

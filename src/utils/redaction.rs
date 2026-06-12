@@ -313,17 +313,14 @@ impl StreamingUnredactor {
             }
         }
         
-        if let Some(last_open) = self.buffer.rfind('<') {
-            if self.buffer[last_open..].find('>').is_none() {
-                // Ensure we don't hold the buffer forever if it's not a valid tag
-                if self.buffer.len() - last_open < 50 {
-                    let return_str = self.buffer[..last_open].to_string();
-                    self.buffer = self.buffer[last_open..].to_string();
-                    output.push_str(&return_str);
-                    return output;
-                }
+        if let Some(last_open) = self.buffer.rfind('<')
+            && self.buffer[last_open..].find('>').is_none()
+            && self.buffer.len() - last_open < 50 {
+                let return_str = self.buffer[..last_open].to_string();
+                self.buffer = self.buffer[last_open..].to_string();
+                output.push_str(&return_str);
+                return output;
             }
-        }
         
         output.push_str(&self.buffer);
         self.buffer.clear();
