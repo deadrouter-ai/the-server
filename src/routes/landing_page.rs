@@ -2,11 +2,17 @@ use askama::Template;
 use hyper::StatusCode;
 use crate::{AppState, IncomingRequest};
 
-const INDEX_CSS: &str = include_str!("../../templates/style_index.css");
+const LA_INDEX_CSS: &str = include_str!("../../templates/style_la_index.css");
+const US_INDEX_CSS: &str = include_str!("../../templates/style_us_index.css");
 
-pub fn get_style_hash() -> &'static str {
+pub fn get_la_style_hash() -> &'static str {
     static HASH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-    HASH.get_or_init(|| crate::utils::http::compute_sha512_b64(INDEX_CSS.trim_end()))
+    HASH.get_or_init(|| crate::utils::http::compute_sha512_b64(LA_INDEX_CSS.trim_end()))
+}
+
+pub fn get_us_style_hash() -> &'static str {
+    static HASH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    HASH.get_or_init(|| crate::utils::http::compute_sha512_b64(US_INDEX_CSS.trim_end()))
 }
 
 #[derive(Template)]
@@ -38,6 +44,11 @@ pub fn handle_landing_page(
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, vec![], format!("Render failed: {}", e)),
     };
 
-    let headers = crate::utils::http::get_security_headers(get_style_hash());
+    let style_hash = match locale {
+        "en" => get_us_style_hash(),
+        _ => get_la_style_hash(),
+    };
+
+    let headers = crate::utils::http::get_security_headers(style_hash);
     (StatusCode::OK, headers, html_string)
 }
