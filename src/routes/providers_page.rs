@@ -21,7 +21,7 @@ pub struct RenderProviderItem {
     pub supported: bool,
 }
 
-const PROVIDERS_CSS: &str = include_str!("../../templates/style_providers.css");
+const PROVIDERS_CSS: &str = include_str!("../../templates/providers/style.css");
 
 fn get_style_hash() -> &'static str {
     static HASH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
@@ -29,8 +29,9 @@ fn get_style_hash() -> &'static str {
 }
 
 #[derive(Template)]
-#[template(path = "la/providers.html")]
-pub struct ProvidersTemplateLa {
+#[template(path = "providers/page.html")]
+pub struct ProvidersTemplate {
+    pub locale: crate::i18n::Locale,
     pub onion_site: String,
     pub supported_providers: Vec<RenderProviderItem>,
     pub unsupported_providers: Vec<RenderProviderItem>,
@@ -40,16 +41,10 @@ pub struct ProvidersTemplateLa {
     pub filter_tee: bool,
 }
 
-#[derive(Template)]
-#[template(path = "en/providers.html")]
-pub struct ProvidersTemplateEn {
-    pub onion_site: String,
-    pub supported_providers: Vec<RenderProviderItem>,
-    pub unsupported_providers: Vec<RenderProviderItem>,
-    pub search_query: String,
-    pub filter_zdr: bool,
-    pub filter_zds: bool,
-    pub filter_tee: bool,
+impl ProvidersTemplate {
+    fn t(&self, key: &str) -> &'static str {
+        crate::i18n::t(self.locale, key)
+    }
 }
 
 fn get_flag(country_code: &str) -> String {
@@ -253,34 +248,18 @@ pub async fn handle_providers_page(
     // 4. Populate and render the Askama template
     let onion_site = state.onion_data.read().unwrap().onion_domain.clone();
     
-    let html_result = match locale {
-        "en" => {
-            let template = ProvidersTemplateEn {
-                onion_site,
-                supported_providers: supported_items,
-                unsupported_providers: unsupported_items,
-                search_query,
-                filter_zdr,
-                filter_zds,
-                filter_tee,
-            };
-            template.render()
-        }
-        _ => {
-            let template = ProvidersTemplateLa {
-                onion_site,
-                supported_providers: supported_items,
-                unsupported_providers: unsupported_items,
-                search_query,
-                filter_zdr,
-                filter_zds,
-                filter_tee,
-            };
-            template.render()
-        }
+    let template = ProvidersTemplate {
+        locale: crate::i18n::Locale::from_code(locale),
+        onion_site,
+        supported_providers: supported_items,
+        unsupported_providers: unsupported_items,
+        search_query,
+        filter_zdr,
+        filter_zds,
+        filter_tee,
     };
 
-    let html_string = match html_result {
+    let html_string = match template.render() {
         Ok(html) => html,
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, vec![], format!("Render failed: {}", e)),
     };

@@ -1,0 +1,18 @@
+{
+  "notfound_desc": {
+    "en": "The coordinates you provided do not map to any active sanctuary or summoning circle. The spirit you seek has vanished into the digital abyss.",
+    "la": "Coordinatae quas dedisti ad nullum sacrarium aut circulum arcanum ducunt. Spiritus quem quaeris in abyssum digitalem evanuit."
+  },
+  "notfound_link": {
+    "en": "Return to Main Gate",
+    "la": "Redi ad Portam Principalem"
+  },
+  "notfound_subtitle": {
+    "en": "SPIRIT LOST IN THE VOID",
+    "la": "SPIRITUS IN VAGATIONE ERANS"
+  },
+  "notfound_title": {
+    "en": "404 — Sanctuary Not Found",
+    "la": "404 — Sacrarium Non Inventum"
+  }
+}

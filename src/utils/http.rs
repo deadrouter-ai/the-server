@@ -5,6 +5,19 @@ use futures::StreamExt;
 use http_body_util::{combinators::BoxBody, BodyExt, Full, StreamBody};
 use base64ct::{Base64, Encoding};
 
+/// Lower-cases header names into a plain map for `IncomingRequest`, dropping any
+/// value that isn't valid UTF-8. Shared by every transport (TCP, QUIC, Tor) so they
+/// normalize headers identically before handing off to the protocol-agnostic router.
+pub fn headers_to_map(headers: &hyper::HeaderMap) -> std::collections::HashMap<String, String> {
+    let mut map = std::collections::HashMap::with_capacity(headers.len());
+    for (k, v) in headers.iter() {
+        if let Ok(val) = v.to_str() {
+            map.insert(k.as_str().to_lowercase(), val.to_string());
+        }
+    }
+    map
+}
+
 pub fn compute_sha512_b64(data: &str) -> String {
     let digest = aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA512, data.as_bytes());
     let b64 = Base64::encode_string(digest.as_ref());

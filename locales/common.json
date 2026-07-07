@@ -1,0 +1,110 @@
+{
+  "filter_tee_only": {
+    "en": "TEE Only",
+    "la": "Sola TEE"
+  },
+  "filter_zdr_only": {
+    "en": "ZDR Only",
+    "la": "Sola ZDR"
+  },
+  "filter_zds_only": {
+    "en": "ZDS Only",
+    "la": "Sola ZDS"
+  },
+  "footer_link_dashboard": {
+    "en": "Sovereign Dashboard",
+    "la": "Tabula Libera"
+  },
+  "footer_link_fdap": {
+    "en": "FDPA / GDPR",
+    "la": "FDAP / GDPR"
+  },
+  "footer_link_models": {
+    "en": "Model Directory",
+    "la": "Index Modelorum"
+  },
+  "footer_link_providers": {
+    "en": "Provider Database",
+    "la": "Receptaculum Provisorum"
+  },
+  "footer_link_status": {
+    "en": "Gate Status",
+    "la": "Status Aditus"
+  },
+  "footer_link_tos": {
+    "en": "Ritual Covenants",
+    "la": "Foedera Ritus"
+  },
+  "lang_selector_label": {
+    "en": "Locale:",
+    "la": "Lingua:"
+  },
+  "models_price_in_label": {
+    "en": "In:",
+    "la": "Intra:"
+  },
+  "models_price_in_tooltip": {
+    "en": "Toll per 1 Million Input Tokens",
+    "la": "Vectigal per I decies centena milia segmentorum intrantium"
+  },
+  "models_price_out_label": {
+    "en": "Out:",
+    "la": "Extra:"
+  },
+  "models_price_out_tooltip": {
+    "en": "Toll per 1 Million Output Tokens",
+    "la": "Vectigal per I decies centena milia segmentorum exeuntium"
+  },
+  "models_status_tooltip": {
+    "en": "Spirit is awake. Communion lines secure.",
+    "la": "Spiritus vigilat. Linea communicandi tuta est."
+  },
+  "models_tee_no": {
+    "en": "Standard infrastructure (No TEE).",
+    "la": "Infrastructura communis (sine TEE)."
+  },
+  "models_tee_yes": {
+    "en": "Trusted Execution Environments (TEE) supported.",
+    "la": "Involucrum Securitatis (TEE) fultum."
+  },
+  "models_zdr_no": {
+    "en": "Zero Data Retention (ZDR) not supported.",
+    "la": "Nulla Retentio Datorum (ZDR) deest."
+  },
+  "models_zdr_yes": {
+    "en": "Zero Data Retention (ZDR) supported.",
+    "la": "Nulla Retentio Datorum (ZDR) fulta."
+  },
+  "models_zds_no": {
+    "en": "Zero Data Scanning (ZDS) not supported.",
+    "la": "Nulla Scrutatio Datorum (ZDS) deest."
+  },
+  "models_zds_yes": {
+    "en": "Zero Data Scanning (ZDS) supported.",
+    "la": "Nulla Scrutatio Datorum (ZDS) fulta."
+  },
+  "nav_faq": {
+    "en": "FAQ",
+    "la": "QSE"
+  },
+  "nav_models": {
+    "en": "Models",
+    "la": "Modeli"
+  },
+  "nav_providers": {
+    "en": "Providers",
+    "la": "Praebitores"
+  },
+  "nav_signin": {
+    "en": "Sign In",
+    "la": "Introire"
+  },
+  "tor_offline_text": {
+    "en": "offline (no active route)",
+    "la": "offline (sine nexu activo)"
+  },
+  "tor_offline_title": {
+    "en": "Tor connection is offline in development mode",
+    "la": "Nexus Tor deest in modo progressionis"
+  }
+}

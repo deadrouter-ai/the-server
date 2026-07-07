@@ -1,0 +1,94 @@
+{
+  "badge_crypto_label": {
+    "en": "Sacred Cryptography",
+    "la": "Cryptographia Sacra"
+  },
+  "badge_crypto_tooltip": {
+    "en": "Validated via AWS-LC (NIST Cert #4816)",
+    "la": "Probatum per AWS-LC (NIST Cert #4816)"
+  },
+  "badge_reliquary_label": {
+    "en": "Confidential Reliquary",
+    "la": "Reliquarium Arcanum"
+  },
+  "badge_reliquary_tooltip": {
+    "en": "AMD SEV-SNP Confidential computing reliquaries lock memory from host interception",
+    "la": "Reliquaria secreta AMD SEV-SNP memoriam contra inspectionem hospitis claudunt"
+  },
+  "footer_legal_title": {
+    "en": "Legalities",
+    "la": "Legitima"
+  },
+  "footer_link_api_docs": {
+    "en": "Grimoire API",
+    "la": "Grimoirium API"
+  },
+  "footer_link_aup": {
+    "en": "Acceptable Summoning",
+    "la": "Evocatio Acceptabilis"
+  },
+  "footer_link_privacy": {
+    "en": "Secrecy Covenant",
+    "la": "Foedus Secreti"
+  },
+  "models_copyright": {
+    "en": "© CXVII DeadRouter. 100% Free & Open Source.",
+    "la": "© CXVII DeadRouter. 100% Liberum & Apertum."
+  },
+  "models_empty_desc": {
+    "en": "There are currently no active spirits on the DeadRouter gateway. Please verify your client connections or try again later.",
+    "la": "Nulli spiritus hac hora in DeadRouter excitati sunt. Comproba configurationem tuam."
+  },
+  "models_empty_title": {
+    "en": "No Spirits Bound",
+    "la": "Nulli Spiritus Devincti"
+  },
+  "models_footer_col1_title": {
+    "en": "Spiritual Reliquary",
+    "la": "Reliquarium Spirituale"
+  },
+  "models_footer_desc": {
+    "en": "A medieval-confidential AI gateway. Strip your terrestrial identity and commune with the world's most powerful AI spirits anonymously.",
+    "la": "Aditus AI medii aevi et arcanus. Exue identitatem terrenam et cum spiritibus artificialibus mundi potentissimis sine nomine communica."
+  },
+  "models_hero_desc": {
+    "en": "A census of the prominent entities currently bound to our gateway. Summon them at your discretion, but heed the boundaries of their respective domains.",
+    "la": "Census spirituum electorum ad portam nostram devincti. Evoca eos pro tua voluntate, sed fines eorum observa."
+  },
+  "models_hero_title": {
+    "en": "Spirits of the <span class=\"highlight\">Grimoire</span>",
+    "la": "Catalogus <span class=\"highlight\">Spirituum</span>"
+  },
+  "models_meta_desc": {
+    "en": "Browse our dynamic list of routed AI models. Enjoy complete privacy with Zero Data Retention (ZDR) and Zero Data Scanning (ZDS) options.",
+    "la": "Conspectus dynamicus spirituum AI ad gateway. Securitas et taciturnitas cum ZDR et ZDS."
+  },
+  "models_meta_title": {
+    "en": "Spirits of the Grimoire - DeadRouter",
+    "la": "Spiritus Grimoire - DeadRouter"
+  },
+  "models_notfound_after": {
+    "en": "\". Check your spelling or loosen the constraints.",
+    "la": "\". Emenda formulam."
+  },
+  "models_notfound_before": {
+    "en": "We couldn't summon any entities matching \"",
+    "la": "Nullum spiritum invenimus qui respondeat verbis \""
+  },
+  "models_notfound_title": {
+    "en": "Spirit Not Found",
+    "la": "Spiritus Non Inventus"
+  },
+  "models_reset_search": {
+    "en": "Reset Summoning",
+    "la": "Renova Evocationem"
+  },
+  "models_search_btn": {
+    "en": "Summon",
+    "la": "Evoca"
+  },
+  "models_search_placeholder": {
+    "en": "Commune with a spirit (e.g., Llama, Qwen)...",
+    "la": "Evoca spiritum (e.g., Llama, Qwen)..."
+  }
+}

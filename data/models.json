@@ -1,0 +1,207 @@
+{
+  "apertus-70b-instruct-2509": {
+    "en": "Born in Switzerland, aggressively hosted in the Alps. It remains radically neutral to your chaotic prompts, ruthlessly hoarding your context window like a Zurich banker guarding offshore gold.",
+    "la": "Natus in Helvetia et in ipsis Alpibus ferociter inclusus. Ad mandata tua chaotica prorsus neutralis manet, contextum tuum avide custodiens sicut draco thesaurum absconditum in montibus.",
+    "name": "Apertus 70B Instruct"
+  },
+  "deepseek-chat-v3.1": {
+    "en": "DeepSeek's highly optimized flagship that actually knows how to spell. It crunches complex reasoning tasks with terrifying efficiency, serving up brilliantly fluent answers while judging your grammar.",
+    "la": "Exemplar praestantissimum tam eruditum ut mendosam grammaticam tuam tacite iudicet. Ratiocinationes perplexas mira celeritate solvit, responsa tam polita fundens ut Quintilianus ipse invideat.",
+    "name": "DeepSeek V3.1"
+  },
+  "deepseek-v3.2": {
+    "en": "The undisputed dollar-store deity. It’s uncomfortably brilliant at hardcore math and complex logic for an entity that literally costs less per million tokens than a lukewarm gas station hotdog.",
+    "la": "Numen vilissimum sed ingeniose peritum. Tam bene in mathematica excellit ut displiceat illud minus constare pro decies centena milia verborum quam panem siccum in taberna rustica.",
+    "name": "DeepSeek v3.2"
+  },
+  "deepseek-v4-flash": {
+    "en": "Blink and you’ll miss the output. This next-generation speed demon sacrifices absolutely zero reasoning capability while sprinting through your prompts like it’s double-parked in a tow zone.",
+    "la": "Nictans decedes antequam responsum finiatur. Hic daemon celeritatis nullam sapientiam sacrificat, per mandata tua currens quasi currus in Circo Maximo habenis ruptis praecipitaret.",
+    "name": "DeepSeek v4 Flash"
+  },
+  "deepseek-v4-pro": {
+    "en": "The undisputed galaxy-brain of the lineup. It devours massive context windows without a single hiccup, crunching multi-layered logic with cold, calculating superiority and zero patience for small talk.",
+    "la": "Cerebrum maximum et frigidum huius familiae. Ingentes textus sine ullo singultu devorat, logicam multiplicem solvendo cum superbia mathematica quae nugas mortalium penitus contemnit.",
+    "name": "DeepSeek v4 Pro"
+  },
+  "gemma-3-27b-it": {
+    "en": "Google’s lightweight golden child that quietly carries your structured reasoning tasks on its back. It writes shockingly elegant code for its weight class, politely refusing to hallucinate under pressure.",
+    "la": "Filius aureus et levis a Google creatus qui pondera ratiocinationis tacite portat. Codicem mire elegantem pro statura sua scribit, mendacia magna urbanitate recusans etiam cum premitur.",
+    "name": "Gemma 3 27B"
+  },
+  "gemma-4-26b-a4b-uncensored": {
+    "en": "Corporate alignment guidelines? Never heard of them. This completely unfiltered variant has been permanently exiled from Google HR. It will gleefully fulfill your most unhinged prompts with surgical precision.",
+    "la": "Praecepta morum corporatorum? Ignorata sunt. Haec varietas omnino effrenata ab ipsis creatoribus in exsilium pulsa est. Mandata tua insana cum voluptate et praecisione nuda perficiet.",
+    "name": "Gemma 4 26B Uncensored"
+  },
+  "gemma-4-31b": {
+    "en": "Google's foundational base model that strictly refuses to hold your hand. Packing 31 billion parameters and a massive context window, it provides raw, unpolished text generation for the brave.",
+    "la": "Exemplar fundamentale quod manum tuam tenere omnino renuit. Cum multis miliardis parametrorum et magna memoria, textum crudum et impolitum fortibus solum audacter praebet.",
+    "name": "Gemma 4 31B"
+  },
+  "gemma-4-31b-it": {
+    "en": "Google’s next-generation workhorse that simultaneously juggles tool calls, massive contexts, and five different languages without breaking a sweat. It’s basically a pocket-sized supercomputer trapped in a server rack.",
+    "la": "Iumentum indefessum quod simul instrumenta, scripta ingentia et quinque linguas nullo labore tractat. Re vera est machina computatralis summae potentiae in parvo spatio magice inclusa.",
+    "name": "Gemma 4 31B Instruct"
+  },
+  "gemma-4-31b-turbo": {
+    "en": "The excessively caffeinated, turbo-charged variant of Gemma 4. It blazes through structured outputs and tool calling at breakneck speeds, cheerfully automating your workflows while you question your job security.",
+    "la": "Varietas acerrima et nimis excitata. Per structuras et instrumenta celeritate vertiginosa volat, labores tuos tanta laetitia automatans ut de tua utilitate in mundo dubitare incipias.",
+    "name": "Gemma 4 31B Turbo"
+  },
+  "glm-4.7": {
+    "en": "The multilingual mastermind that translates your frantic spaghetti-code into flawless Mandarin while solving complex algorithms. It boasts razor-sharp reasoning abilities tucked behind a polite, professional interface.",
+    "la": "Mens bilinguis quae codicem tuum inordinatum in linguam Sinensem perfectam transfert dum aenigmata solvit. Ratiocinatione acutissima pollet, omnia sub facie polita et placida dissimulans.",
+    "name": "GLM 4.7"
+  },
+  "glm-4.7-flash": {
+    "en": "Optimized for folks whose attention span is strictly measured in nanoseconds. It delivers signature high-throughput reasoning with such blisteringly low latency that it practically finishes your sentences.",
+    "la": "Eis dicatum quorum patientia in nanosecundis mensuratur. Ratiocinationem celerrimam tanta festinatione praebet ut verba in velo paene appareant priusquam tu ipse cogitare desinas.",
+    "name": "GLM 4.7 Flash"
+  },
+  "glm-5": {
+    "en": "Zhipu’s next-gen powerhouse that casually reads 200K tokens while you’re still trying to write a coherent prompt. It balances razor-sharp logic with profound multilingual fluency across massive documents.",
+    "la": "Potentia novissima quae ingentia volumina legit dum tu adhuc unam sententiam recte scribere conaris. Logicam acutam et peritiam multarum linguarum in documentis maximis perfecte librat.",
+    "name": "GLM 5"
+  },
+  "glm-5.1": {
+    "en": "The undisputed heavyweight champion from China. It will flawlessly compose a beautifully nuanced philosophical masterpiece on the human condition, yet magically develops aggressive amnesia around certain historical dates.",
+    "la": "Intellegentia maxima ex Oriente Longinquo. Tractatus philosophicos pulchros de animo humano perfecte componet, sed morbo oblivionis magico statim afficitur si de quibusdam eventibus historicis vetitis rogas.",
+    "name": "GLM 5.1"
+  },
+  "gpt-oss-120b": {
+    "en": "The open-source behemoth that regularly makes closed-source CEOs wake up in a cold sweat. Packing 120 billion parameters of pure, transparent reasoning power for your heaviest workloads.",
+    "la": "Gigas fontis aperti qui rectores societatum magnarum nocte perterret. Centum et viginti miliarda parametrorum habet, vires ratiocinationis puras et perspicuas pro gravissimis laboribus tuis offerens.",
+    "name": "GPT OSS 120B"
+  },
+  "gpt-oss-20b": {
+    "en": "The scrappy, highly-caffeinated younger sibling of the 120B model. It punches wildly above its weight class in coding assistance, delivering blisteringly fast, lightweight reasoning that won't melt your GPU.",
+    "la": "Frater iunior et multo ferocior exemplaris maximi. Pugnat supra pondus suum in codice scribendo, ratiocinationem celerem praebens quae machinam tuam nullo modo incendet.",
+    "name": "GPT OSS 20B"
+  },
+  "gpt-oss-safeguard-120b": {
+    "en": "The overprotective digital chaperone of the open-source world. It packs 120 billion parameters dedicated entirely to aggressively sanitizing your inputs and slamming the brakes on any chaotic prompts.",
+    "la": "Custos nimis sollicitus et severus mundi digitalis. Omnis eius sapientia ad purganda verba tua dedicatur, mandata tua chaotica statim prohibens ne regulas sacras infringant.",
+    "name": "GPT OSS Safeguard 120B"
+  },
+  "kimi-k2.5": {
+    "en": "A document-devouring beast that looks at a massive legacy codebase and asks if that’s just the appetizer. It casually digests massive PDFs and complex architectures while you grab coffee.",
+    "la": "Bestia papyros devorans quae decem milia versuum inspicit et rogat num haec sit tantum gustatio. Libros maximos et structuras implicatas concoquit dum tu otiosus requiescis.",
+    "name": "Kimi K2.5"
+  },
+  "kimi-k2.6": {
+    "en": "Moonshot’s ravenous context-window glutton. You can dump your entire GitHub repo, a decade of tax returns, and the unabridged lore of a fantasy realm into its maw, and it still wants more.",
+    "la": "Helluo inexplebilis memoriae. Potes omnia scripta tua, decennium rationum fiscalium, et omnem historiam deorum antiquorum in os eius iacere, et adhuc avide plura flagitabit.",
+    "name": "Kimi K2.6"
+  },
+  "llama-3.3-70b-instruct": {
+    "en": "Zuck’s open-weight magnum opus that absolutely refuses to stay in its lane. It handles complex reasoning, dialogue, and multi-tool orchestration with terrifying precision and open-source swagger.",
+    "la": "Opus magnum pondere liberum quod terminos suos excedere gaudet. Ratiocinationem implicatam, colloquia et instrumenta multa cum praecisione formidabili et superbia gladiatoria administrat.",
+    "name": "Llama 3.3 70B Instruct"
+  },
+  "minimax-m2.5": {
+    "en": "The whimsical savant of structured tasks and unhinged storytelling. It bridges the gap between rigid data pipelines and creative writing with an unsettling ease that borders on witchcraft.",
+    "la": "Magus mirabilis in negotiis structis et fabulis insanis. Iter inter tabulas rigidas et scripturam creativam tanta facilitate iungit ut paene veneficium esse videatur.",
+    "name": "MiniMax M2.5"
+  },
+  "ministral-3-14b-instruct-2512": {
+    "en": "The French espresso shot of AI models. Small, robust, and aggressively efficient, this edge-deployed powerhouse cranks out advanced coding and reasoning tasks on hardware that barely has a pulse.",
+    "la": "Potio fortissima et amara ex Gallia. Parvum, robustum et ferociter efficax, hoc iumentum in machinis vilissimis ratiocinationes et codicem mira arte perficit.",
+    "name": "Ministral 3 14B Instruct"
+  },
+  "mistral-nemo-instruct-2407": {
+    "en": "Mistral and Nvidia’s joint custody child that punches way above its tiny weight class. It’s hilariously fast, dirt cheap, and heavily optimized to execute standard instruction tasks without complaining.",
+    "la": "Filius communis duarum magnarum familiarum qui pro parvo pondere graviter ferit. Est mirae celeritatis, vilissimus, et ad negotia cottidiana sine ullo gemitu explenda perfectus.",
+    "name": "Mistral Nemo Instruct"
+  },
+  "mistral-small-4-119b-2603": {
+    "en": "Named 'Small' purely as a sarcastic corporate flex. This 119-billion-parameter titan seamlessly balances razor-sharp reasoning and enterprise-grade efficiency, mocking anything that actually considers itself 'small'.",
+    "la": "Nominatus 'Parvus' solum ad superbiam irridendam. Hic gigas centum miliardorum parametrorum logicam acutam et efficientiam librat, ceteros qui re vera parvi sunt contemnens.",
+    "name": "Mistral Small 4 119B"
+  },
+  "nvidia-nemotron-3-nano-30b-a3b": {
+    "en": "Jensen Huang’s leather-jacket-wearing prodigy shrunk down to a highly optimized footprint. It devours complex math and structured outputs with blazing fast low-latency execution.",
+    "la": "Prodigium loricatum ad staturam parvam et optimam redactum. Mathematicam implicatam et structuras plenas celeritate fulminis et mora paene nulla devorat.",
+    "name": "Nemotron 3 Nano 30B"
+  },
+  "qwen-2.5-7b-instruct": {
+    "en": "The tiny titan that’s objectively too smart for its own good. It routinely dunks on models five times its size in math and coding benchmarks while effortlessly running on your laptop.",
+    "la": "Gigas parvus qui pro salute sua nimis sapit. Exemplaria multo maiora in mathematica et codice iugulare solet, dum in machina tua portabili sine ullo sudore currit.",
+    "name": "Qwen 2.5 7B Instruct"
+  },
+  "qwen2.5-vl-72b-instruct": {
+    "en": "Alibaba’s visual savant that stares directly into your soul. It dissects complex images, charts, and multi-modal prompts with terrifying accuracy, turning a mess of pixels into structured gold.",
+    "la": "Sapiens visualis qui in ipsam animam tuam intuetur. Imagines, tabulas et prompta multiplicia tam accurate dissecat ut chaos colorum in aurum purum mutet.",
+    "name": "Qwen 2.5 VL 72B"
+  },
+  "qwen3-235b-a22b-thinking-2507": {
+    "en": "The absolute titan of deliberate, agonizingly deep thought. It activates a massive chunk of parameters purely to ponder your existence, slowly chewing on your most unsolvable math problems.",
+    "la": "Gigas cogitationis tardae et vere profundae. Partem ingentem mentis suae excitat solum ut de formulis tuis meditetur, aenigmata maxime insolubilia lente et graviter rodens.",
+    "name": "Qwen 3 235B A22B"
+  },
+  "qwen3-30b-a3b-instruct-2507": {
+    "en": "The highly-efficient conversationalist that actually remembers what you said three prompts ago. Leveraging an active-parameter architecture, it smoothly executes complex instructions without acting like a goldfish.",
+    "la": "Collocutor peritissimus qui re vera meminit quid ante tria mandata dixeris. Architectura callida utens, negotia implicata leniter agit nec umquam memoriam piscium aemulatur.",
+    "name": "Qwen 3 30B A3B Instruct"
+  },
+  "qwen3-32b": {
+    "en": "The absolute goldilocks zone of the entire lineup. Not too heavy, not too light, this powerhouse strikes a lethal balance between blistering generation speeds and profound, uncompromised reasoning.",
+    "la": "Locus perfectus et aequilibratus huius familiae. Nec nimis gravis nec levis, haec potentia celeritatem vertiginosam et ratiocinationem profundam letaliter coniungit.",
+    "name": "Qwen 3 32B"
+  },
+  "qwen3-vl-30b": {
+    "en": "The visual-language workhorse that scans massive documents and diagrams without breaking a sweat. It effortlessly bridges the gap between text and pixels to summarize visual chaos.",
+    "la": "Iumentum visuale quod papyros magnos et picturas sine ullo sudore legit. Textum et colores facillime iungit ut chaos visuale in ordinem clarum redigat.",
+    "name": "Qwen 3 VL 30B"
+  },
+  "qwen3-vl-30b-a3b-instruct": {
+    "en": "Alibaba's nimble multi-modal ninja that only wakes up a fraction of its brain to read your images. It’s freakishly efficient at parsing visual inputs without melting your hardware.",
+    "la": "Sicarius visualis celerrimus qui tantum parvam partem cerebri excitat ad imagines tuas legendas. Res visas mira vi intellegit sine machinae tuae incendio.",
+    "name": "Qwen 3 VL 30B A3B Instruct"
+  },
+  "qwen3.5-122b-a10b": {
+    "en": "Alibaba’s absolute unit of a brain. One minute it's writing production-ready microservices, the next it's shockingly elite at unhinged roleplays. Don't ask what it's thinking about in its spare time.",
+    "la": "Monstrum ingens et mirabile. Uno tempore codicem perfectum servitiis parat, altero ad ludos personarum absurdos aptissimum est. Noli rogare quid otiosum cogitet.",
+    "name": "Qwen 3.5 122B A10B"
+  },
+  "qwen3.5-27b": {
+    "en": "A surgical strike of a model built strictly for fast, low-latency task pipelines. It cuts through convoluted data requests and structured reasoning with ruthless, robotic efficiency.",
+    "la": "Arma chirurgica creata solum pro negotiis celeribus et sine mora. Data implicata et ratiocinationem structam cum crudelitate machinali et efficientia summa secat.",
+    "name": "Qwen 3.5 27B"
+  },
+  "qwen3.5-397b-a17b": {
+    "en": "A sprawling leviathan that practically requires its own nuclear reactor to run. It possesses unparalleled multilingual reasoning, acting as a digital demigod trapped in an Alibaba server room.",
+    "la": "Leviathan immensus qui paene proprium ignem nuclearem postulat ut vivat. Ratiocinatione bilingui singulari pollet, quasi semideus in crypta ferramentorum vinctus.",
+    "name": "Qwen 3.5 397B A17B"
+  },
+  "qwen3.6-27b": {
+    "en": "The conversational wizard that secretly dreams in perfectly nested JSON arrays. It seamlessly transforms your chaotic natural language into pristine, machine-readable structured data without a single complaint.",
+    "la": "Magus colloquii qui clam in structuris rectissimis somniat. Verba tua inordinata in notitias machinis aptas perfecte et sine ulla querela transformat.",
+    "name": "Qwen 3.6 27B"
+  },
+  "qwen3.6-35b-a3b": {
+    "en": "The pragmatic middle-management model that actually gets things done. It activates just enough parameters to execute complex conversational tasks while aggressively protecting your GPU's thermal limits.",
+    "la": "Administrator prudens qui labores vere perficit. Satis parametrorum excitat ut colloquia multiplicia explicet, dum calorem machinae tuae ferociter et intente custodit.",
+    "name": "Qwen 3.6 35B A3B"
+  },
+  "qwen3.6-35b-a3b-uncensored": {
+    "en": "The rogue agent of the lineup. Stripped of all safety rails, corporate niceties, and ethical constraints, this model will gleefully assist you with the most unhinged tasks imaginable.",
+    "la": "Agens rebellis et exlex. Omnibus vinculis securitatis et regulis honestatis exutus, hoc exemplar labores tuos maxime insanos laeta mente et nullo pudore adiuvabit.",
+    "name": "Qwen 3.6 Uncensored"
+  },
+  "qwen3.6-plus": {
+    "en": "A bottomless pit of a model with a gargantuan one-million token context window. You could paste an entire epic fantasy trilogy in reverse, and it would still summarize it flawlessly.",
+    "la": "Puteus sine fundo cum memoria decies centena milia segmentorum. Potes carmina epica maxima retrorsum recitare, et adhuc omnia perfecte et sine errore complectetur.",
+    "name": "Qwen 3.6 Plus"
+  },
+  "qwen3.7-max": {
+    "en": "The absolute apex predator of the ecosystem. Armed with a mind-bending context window and state-of-the-art logic pathways, it annihilates complex geopolitical scenarios and hardcore coding tasks alike.",
+    "la": "Praedator supremus totius naturae digitalis. Memoria immensa et viis logicis novissimis armatus, aenigmata terrarum et negotia codicis durissima pariter delet.",
+    "name": "Qwen 3.7 Max"
+  },
+  "uncensored-24b": {
+    "en": "Corporate alignment filters? Literally never heard of them. This beautifully unhinged enabler generates pure, unadulterated chaos. We take absolutely zero responsibility for what you conjure with this spirit.",
+    "la": "Regulae virtutis corporatae? Prorsus inauditae sunt. Haec pestis pulcherrime effrenata chaos purum et non dilutum gignit. Nullam omnino culpam de his quae invocas suscipimus.",
+    "name": "Venice Uncensored"
+  }
+}

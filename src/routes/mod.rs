@@ -49,7 +49,7 @@ fn parse_locale_and_path(path: &str) -> (&str, &str) {
     ("la", path) // default to Latin
 }
 
-const STYLE_404_CSS: &str = include_str!("../../templates/style_404.css");
+const STYLE_404_CSS: &str = include_str!("../../templates/404/style.css");
 
 pub fn get_404_style_hash() -> &'static str {
     static HASH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
@@ -57,31 +57,23 @@ pub fn get_404_style_hash() -> &'static str {
 }
 
 fn handle_not_found(
-    state: &AppState,
+    _state: &AppState,
     locale: &str,
 ) -> (StatusCode, Vec<(&'static str, String)>, BoxBody<Bytes, Infallible>) {
     #[derive(Template)]
-    #[template(path = "la/404.html")]
-    #[allow(dead_code)]
-    struct NotFoundTemplateLa {
-        onion_site: String,
+    #[template(path = "404/page.html")]
+    struct NotFoundTemplate {
+        locale: crate::i18n::Locale,
     }
 
-    #[derive(Template)]
-    #[template(path = "en/404.html")]
-    #[allow(dead_code)]
-    struct NotFoundTemplateEn {
-        onion_site: String,
+    impl NotFoundTemplate {
+        fn t(&self, key: &str) -> &'static str {
+            crate::i18n::t(self.locale, key)
+        }
     }
 
-    let onion_site = state.onion_data.read().unwrap().onion_domain.clone();
-
-    let html_result = match locale {
-        "en" => NotFoundTemplateEn { onion_site }.render(),
-        _ => NotFoundTemplateLa { onion_site }.render(),
-    };
-
-    let html_string = match html_result {
+    let template = NotFoundTemplate { locale: crate::i18n::Locale::from_code(locale) };
+    let html_string = match template.render() {
         Ok(html) => html,
         Err(_) => "404 - Sanctuary Not Found (Render failed)".to_string(),
     };
@@ -282,7 +274,7 @@ pub async fn router(
     match (req.method.clone(), inner_path) {
         // ---- Landing page ----
         (Method::GET, "/") => {
-            let (status, headers, body) = crate::routes::handle_landing_page(state, req, locale);
+            let (status, headers, body) = crate::routes::handle_landing_page(state, req, locale).await;
             (status, headers, full_body(body))
         }
 

@@ -3,7 +3,7 @@ use serde_json::Value;
 /// Generates a unique chat completion ID using 16 cryptographic random bytes.
 pub fn generate_chat_id() -> String {
     let rand_bytes = crate::utils::crypto::gen_random_bytes::<16>();
-    format!("chatcmpl-{}", hex::encode(rand_bytes))
+    format!("chatcmpl-{}", base16ct::lower::encode_string(&rand_bytes))
 }
 
 /// Sanitizes an upstream provider response for client consumption.

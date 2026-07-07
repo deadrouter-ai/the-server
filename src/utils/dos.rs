@@ -17,6 +17,13 @@ const IP_BAN_DURATIONS: &[Duration] = &[
     Duration::from_secs(7 * 24 * 60 * 60), // 5th+ violation: 7 days
 ];
 
+// Tor onion streams hide the client's real IP by design, so there is no per-source
+// key to rate-limit on for that transport. These bound aggregate onion traffic
+// instead, so it can't consume unbounded connections/requests behind the anonymity.
+const ANONYMOUS_RATE_LIMIT: usize = 2000;
+const ANONYMOUS_RATE_WINDOW: Duration = Duration::from_secs(60);
+const ANONYMOUS_BAN_DURATION: Duration = Duration::from_secs(60);
+
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct Subnet([u8; 3]);
 
@@ -28,9 +35,17 @@ struct SubnetState {
 struct IpState {
     requests: VecDeque<Instant>,
     violations: usize,
+    last_violation_at: Option<Instant>,
     banned_until: Option<Instant>,
     active_connections: u32,
 }
+
+/// Below this, an entry is stale enough to reclaim during `sweep`.
+const SWEEP_IDLE_THRESHOLD: Duration = IP_RATE_WINDOW;
+/// A quiet IP's escalated ban level decays after this long without a fresh violation,
+/// so a single burst of shared-IP (CGNAT/proxy) abuse doesn't permanently degrade
+/// service for everyone behind that address.
+const VIOLATION_DECAY: Duration = Duration::from_secs(24 * 60 * 60);
 
 pub struct ConnectionGuard {
     dos: std::sync::Arc<DosProtection>,
@@ -43,9 +58,22 @@ impl Drop for ConnectionGuard {
     }
 }
 
+/// Connection admission slot for transports with no meaningful per-source identity
+/// (see [`DosProtection::try_acquire_anonymous_connection`]).
+pub struct AnonymousConnectionGuard {
+    dos: std::sync::Arc<DosProtection>,
+}
+
+impl Drop for AnonymousConnectionGuard {
+    fn drop(&mut self) {
+        self.dos.global_connections.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 pub struct DosProtection {
     subnets: Mutex<HashMap<Subnet, SubnetState>>,
     ips: Mutex<HashMap<Ipv4Addr, IpState>>,
+    anonymous: Mutex<SubnetState>,
     global_connections: std::sync::atomic::AtomicU32,
 }
 
@@ -60,8 +88,53 @@ impl DosProtection {
         Self {
             subnets: Mutex::new(HashMap::new()),
             ips: Mutex::new(HashMap::new()),
+            anonymous: Mutex::new(SubnetState { requests: VecDeque::new(), banned_until: None }),
             global_connections: std::sync::atomic::AtomicU32::new(0),
         }
+    }
+
+    /// Connection admission for transports that hide the client's real IP by design
+    /// (Tor onion streams). Only the global connection cap applies — there is no
+    /// per-source state to track, so this is the sole backstop against a burst of
+    /// onion circuits opening unbounded concurrent connections.
+    pub fn try_acquire_anonymous_connection(self: &std::sync::Arc<Self>) -> Option<AnonymousConnectionGuard> {
+        if self.global_connections.fetch_add(1, std::sync::atomic::Ordering::Relaxed) >= 15000 {
+            self.global_connections.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+            return None;
+        }
+        Some(AnonymousConnectionGuard { dos: self.clone() })
+    }
+
+    /// Request-rate admission for the same identity-less transports; bounds aggregate
+    /// throughput across all such connections combined rather than per source.
+    pub fn check_anonymous_request(&self) -> Result<(), u64> {
+        let now = Instant::now();
+        let mut state = self.anonymous.lock().unwrap();
+
+        if let Some(ban_end) = state.banned_until {
+            if now < ban_end {
+                return Err((ban_end - now).as_secs().max(1));
+            }
+            state.banned_until = None;
+        }
+
+        while let Some(&t) = state.requests.front() {
+            if now.duration_since(t) > ANONYMOUS_RATE_WINDOW {
+                state.requests.pop_front();
+            } else {
+                break;
+            }
+        }
+
+        state.requests.push_back(now);
+
+        if state.requests.len() > ANONYMOUS_RATE_LIMIT {
+            state.banned_until = Some(now + ANONYMOUS_BAN_DURATION);
+            state.requests.clear();
+            return Err(ANONYMOUS_BAN_DURATION.as_secs());
+        }
+
+        Ok(())
     }
 
     pub fn try_acquire_connection(self: &std::sync::Arc<Self>, ip: IpAddr) -> Option<ConnectionGuard> {
@@ -78,6 +151,7 @@ impl DosProtection {
         let state = ips.entry(ipv4).or_insert_with(|| IpState {
             requests: VecDeque::new(),
             violations: 0,
+            last_violation_at: None,
             banned_until: None,
             active_connections: 0,
         });
@@ -160,6 +234,7 @@ impl DosProtection {
             let state = ips.entry(ipv4).or_insert_with(|| IpState {
                 requests: VecDeque::new(),
                 violations: 0,
+                last_violation_at: None,
                 banned_until: None,
                 active_connections: 0,
             });
@@ -186,7 +261,8 @@ impl DosProtection {
                 let ban_idx = state.violations.min(IP_BAN_DURATIONS.len() - 1);
                 let ban_duration = IP_BAN_DURATIONS[ban_idx];
                 state.violations += 1;
-                
+                state.last_violation_at = Some(now);
+
                 let ban_end = now + ban_duration;
                 state.banned_until = Some(ban_end);
                 state.requests.clear();
@@ -195,5 +271,41 @@ impl DosProtection {
         }
 
         Ok(())
+    }
+
+    /// Reclaims memory from tracking maps that would otherwise grow without bound
+    /// (one entry per distinct source IP/subnet ever seen) and decays escalated ban
+    /// levels for IPs that have been quiet for a long time. Intended to be called
+    /// periodically (e.g. every few minutes) from a background task.
+    pub fn sweep(&self) {
+        let now = Instant::now();
+
+        {
+            let mut subnets = self.subnets.lock().unwrap();
+            subnets.retain(|_, state| {
+                state.requests.retain(|&t| now.duration_since(t) <= SWEEP_IDLE_THRESHOLD);
+                !state.requests.is_empty() || state.banned_until.is_some_and(|end| now < end)
+            });
+        }
+
+        {
+            let mut ips = self.ips.lock().unwrap();
+            ips.retain(|_, state| {
+                state.requests.retain(|&t| now.duration_since(t) <= SWEEP_IDLE_THRESHOLD);
+
+                if let Some(last) = state.last_violation_at
+                    && now.duration_since(last) > VIOLATION_DECAY
+                    && state.banned_until.is_none_or(|end| now >= end)
+                {
+                    state.violations = 0;
+                    state.last_violation_at = None;
+                }
+
+                !state.requests.is_empty()
+                    || state.active_connections > 0
+                    || state.violations > 0
+                    || state.banned_until.is_some_and(|end| now < end)
+            });
+        }
     }
 }

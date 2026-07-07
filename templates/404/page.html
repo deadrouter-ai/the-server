@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="la">
+<html lang="{{ self.locale.code() }}">
 
 <head>
     <meta charset="utf-8" />
@@ -7,8 +7,8 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#060404" />
 
-    <title>404 — Sacrarium Non Inventum</title>
-    <style>{% include "style_404.css" %}</style>
+    <title>{{ self.t("notfound_title") }}</title>
+    <style>{% include "style.css" %}</style>
 </head>
 
 <body>
@@ -17,13 +17,13 @@
         <main class="void-content">
             <div class="gothic-sigil">✠</div>
             <h1 class="void-title">404</h1>
-            <h2 class="void-subtitle">SPIRITUS IN VAGATIONE ERANS</h2>
+            <h2 class="void-subtitle">{{ self.t("notfound_subtitle") }}</h2>
             <div class="gothic-divider"></div>
             <p class="void-description">
-                Coordinatae quas dedisti ad nullum sacrarium aut circulum arcanum ducunt. Spiritus quem quaeris in abyssum digitalem evanuit.
+                {{ self.t("notfound_desc") }}
             </p>
             <div class="void-actions">
-                <a href="/" class="btn">Redi ad Portam Principalem</a>
+                <a href="{{ self.locale.home_href() }}" class="btn">{{ self.t("notfound_link") }}</a>
             </div>
         </main>
     </div>

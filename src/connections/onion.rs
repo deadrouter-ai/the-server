@@ -112,7 +112,16 @@ pub async fn start(state: Arc<AppState>) {
             let onion_domain_clone = onion_domain.clone();
             let tls_acceptor_clone = tls_acceptor.clone();
 
+            // Tor hides the circuit's real source IP by design, so the usual per-IP
+            // DoS tracking can't apply here; this only bounds the aggregate connection
+            // count across all onion traffic (see try_acquire_anonymous_connection).
+            let Some(connection_guard) = state.dos_protection.try_acquire_anonymous_connection() else {
+                let _ = stream_req.reject(End::new_misc()).await;
+                continue;
+            };
+
             tokio::spawn(async move {
+                let _connection_guard = connection_guard;
                 // WORKAROUND: Bypass the unnameable type bug by formatting the request
                 // The debug string will look something like: "Begin(Begin { port: 443, ... })"
                 let req_str = format!("{:?}", stream_req.request());
@@ -141,6 +150,14 @@ pub async fn start(state: Arc<AppState>) {
                         let onion_domain = onion_domain_clone.clone();
                         let state = state.clone();
                         async move {
+                            if let Err(retry_after) = state.dos_protection.check_anonymous_request() {
+                                let resp = Response::builder()
+                                    .status(StatusCode::TOO_MANY_REQUESTS)
+                                    .header("Retry-After", retry_after.to_string())
+                                    .body(crate::routes::full_body(String::new()))
+                                    .unwrap();
+                                return Ok::<_, Infallible>(resp);
+                            }
                             if req.uri().path().starts_with("/v1") {
                                 let proto = match req.version() {
                                     hyper::Version::HTTP_2 => "Tor Onion (HTTP/2) [Plaintext]",
@@ -153,12 +170,7 @@ pub async fn start(state: Arc<AppState>) {
                                     Err(_) => Bytes::new(),
                                 };
 
-                                let mut header_map = std::collections::HashMap::new();
-                                for (k, v) in parts.headers.iter() {
-                                    if let Ok(val) = v.to_str() {
-                                        header_map.insert(k.as_str().to_lowercase(), val.to_string());
-                                    }
-                                }
+                                let header_map = crate::utils::http::headers_to_map(&parts.headers);
 
                                 let incoming = IncomingRequest {
                                     method: parts.method,
@@ -213,6 +225,14 @@ pub async fn start(state: Arc<AppState>) {
                     let svc = service_fn(move |req: Request<hyper::body::Incoming>| {
                         let state = state.clone();
                         async move {
+                            if let Err(retry_after) = state.dos_protection.check_anonymous_request() {
+                                let resp = Response::builder()
+                                    .status(StatusCode::TOO_MANY_REQUESTS)
+                                    .header("Retry-After", retry_after.to_string())
+                                    .body(crate::routes::full_body(String::new()))
+                                    .unwrap();
+                                return Ok::<_, Infallible>(resp);
+                            }
                             let proto = match req.version() {
                                 hyper::Version::HTTP_2 => "Tor Onion (HTTP/2)",
                                 _ => "Tor Onion (HTTP/1.1)",
@@ -224,12 +244,7 @@ pub async fn start(state: Arc<AppState>) {
                                 Err(_) => Bytes::new(),
                             };
 
-                            let mut header_map = std::collections::HashMap::new();
-                            for (k, v) in parts.headers.iter() {
-                                if let Ok(val) = v.to_str() {
-                                    header_map.insert(k.as_str().to_lowercase(), val.to_string());
-                                }
-                            }
+                            let header_map = crate::utils::http::headers_to_map(&parts.headers);
 
                             let incoming = IncomingRequest {
                                 method: parts.method,

@@ -73,7 +73,7 @@ impl E2eeSession {
         
         let key_pair = Ed25519KeyPair::from_seed_unchecked(&*seed)
             .expect("Valid seed length guaranteed by gen_random_bytes");
-        let client_pub_hex = hex::encode(key_pair.public_key().as_ref());
+        let client_pub_hex = base16ct::lower::encode_string(key_pair.public_key().as_ref());
 
         let hash_bytes = digest(&SHA512, &*seed);
         let mut hash_slice = Zeroizing::new(hash_bytes.as_ref().to_vec());
@@ -137,7 +137,8 @@ pub fn v2_encrypt(plaintext: &[u8], recipient_x25519_pub_bytes: &[u8; 32]) -> Re
     let nonce_bytes = gen_random_bytes::<24>();
     let nonce = XNonce::from(nonce_bytes);
     
-    let cipher = XChaCha20Poly1305::new(chacha20poly1305::Key::from_slice(&*symmetric_key));
+    let key = <&chacha20poly1305::Key>::try_from(symmetric_key.as_slice()).expect("key is fixed at 32 bytes");
+    let cipher = XChaCha20Poly1305::new(key);
     let ciphertext = cipher.encrypt(&nonce, plaintext).map_err(|e| format!("Encryption failed: {}", e))?;
 
     let mut result = Vec::with_capacity(32 + 24 + ciphertext.len());
@@ -148,14 +149,14 @@ pub fn v2_encrypt(plaintext: &[u8], recipient_x25519_pub_bytes: &[u8; 32]) -> Re
     drop(symmetric_key);
     drop(shared_secret);
 
-    Ok(hex::encode(result))
+    Ok(base16ct::lower::encode_string(&result))
 }
 
 /// Decrypts a hex-encoded XChaCha20Poly1305 payload using the local static secret.
-/// 
+///
 /// The payload must be prefixed with a 32-byte ephemeral public key and a 24-byte nonce.
 pub fn v2_decrypt(data_hex: &str, secret_x25519_bytes: &[u8; 32]) -> Result<String, String> {
-    let data = hex::decode(data_hex).map_err(|_| "Invalid hex")?;
+    let data = base16ct::lower::decode_vec(data_hex).map_err(|_| "Invalid hex")?;
     if data.len() < 56 { return Err("Payload too short".into()); }
 
     let mut eph_pub_bytes = [0u8; 32];
@@ -169,7 +170,7 @@ pub fn v2_decrypt(data_hex: &str, secret_x25519_bytes: &[u8; 32]) -> Result<Stri
     let ciphertext = &data[56..];
 
     let secret_key = StaticSecret::from(*secret_x25519_bytes);
-    let shared_secret = Zeroizing::new(secret_key.diffie_hellman(&ephemeral_pub));
+    let shared_secret = secret_key.diffie_hellman(&ephemeral_pub);
 
     let salt = Salt::new(HKDF_SHA256, &[]);
     let prk = salt.extract(shared_secret.as_bytes());
@@ -178,7 +179,8 @@ pub fn v2_decrypt(data_hex: &str, secret_x25519_bytes: &[u8; 32]) -> Result<Stri
     let mut symmetric_key = Zeroizing::new([0u8; 32]);
     okm.fill(&mut *symmetric_key).map_err(|_| "Failed HKDF fill")?;
 
-    let cipher = XChaCha20Poly1305::new(chacha20poly1305::Key::from_slice(&*symmetric_key));
+    let key = <&chacha20poly1305::Key>::try_from(symmetric_key.as_slice()).expect("key is fixed at 32 bytes");
+    let cipher = XChaCha20Poly1305::new(key);
     let plaintext = Zeroizing::new(cipher.decrypt(&nonce, ciphertext).map_err(|_| "Decryption failed")?);
 
     let raw_string = String::from_utf8(plaintext.to_vec()).map_err(|_| "Invalid UTF-8")?;
@@ -205,7 +207,7 @@ pub async fn fetch_near_ai_model_key(
     direct_endpoint: &str,
 ) -> Result<([u8; 32], String), String> {
     let nonce_bytes = gen_random_bytes::<32>();
-    let nonce_hex = hex::encode(nonce_bytes);
+    let nonce_hex = base16ct::lower::encode_string(&nonce_bytes);
 
     let url = format!("{}/v1/attestation/report?signing_algo=ed25519&include_tls_fingerprint=true&nonce={}", direct_endpoint, nonce_hex);
     let resp = client.get(&url).send().await.map_err(|e| format!("Network error fetching attestation: {}", e))?;
@@ -217,9 +219,10 @@ pub async fn fetch_near_ai_model_key(
         .or_else(|| json.get("model_attestations").and_then(|a| a.get(0)).and_then(|m| m.get("signing_address")).and_then(|v| v.as_str()))
         .ok_or_else(|| "FATAL: Missing signing key in attestation response".to_string())?;
 
-    let mut key_bytes = [0u8; 32];
-    hex::decode_to_slice(signing_key_hex.trim_start_matches("0x"), &mut key_bytes)
-        .map_err(|_| format!("Invalid hex in model key: {}", signing_key_hex))?;
+    let key_bytes: [u8; 32] = base16ct::lower::decode_vec(signing_key_hex.trim_start_matches("0x"))
+        .ok()
+        .and_then(|v| v.try_into().ok())
+        .ok_or_else(|| format!("Invalid hex in model key: {}", signing_key_hex))?;
 
     let intel_quote_opt = json.get("intel_quote").and_then(|v| v.as_str())
         .or_else(|| json.get("model_attestations").and_then(|a| a.get(0)).and_then(|m| m.get("intel_quote")).and_then(|v| v.as_str()));
@@ -235,12 +238,12 @@ pub async fn fetch_near_ai_model_key(
         .and_then(|v| v.as_str())
         .ok_or_else(|| "FATAL: Missing tls_cert_fingerprint in attestation response".to_string())?;
         
-    let cert_fp_bytes = hex::decode(tls_cert_fingerprint)
+    let cert_fp_bytes = base16ct::lower::decode_vec(tls_cert_fingerprint)
         .map_err(|_| format!("Invalid hex in tls_cert_fingerprint: {}", tls_cert_fingerprint))?;
 
     // A. Verify Intel TDX
     if let Some(intel_quote_hex) = intel_quote_opt {
-        let quote_bytes = hex::decode(intel_quote_hex.trim_start_matches("0x"))
+        let quote_bytes = base16ct::lower::decode_vec(intel_quote_hex.trim_start_matches("0x"))
             .map_err(|_| "Invalid hex in TDX quote")?;
         
         let mut expected_hash_input = Vec::with_capacity(key_bytes.len() + cert_fp_bytes.len());
@@ -257,7 +260,7 @@ pub async fn fetch_near_ai_model_key(
 
         if quote_bytes.len() >= 280 {
             let mr_config_id_bytes = &quote_bytes[232..280];
-            let mr_config_id_hex = hex::encode(mr_config_id_bytes);
+            let mr_config_id_hex = base16ct::lower::encode_string(mr_config_id_bytes);
             
             let is_all_zeros = mr_config_id_bytes.iter().all(|&b| b == 0);
             
@@ -275,7 +278,7 @@ pub async fn fetch_near_ai_model_key(
 
                 if let Some(app_compose) = &app_compose_str {
                     let compose_hash = aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, app_compose.as_bytes());
-                    let expected_mr_config = format!("01{}", hex::encode(compose_hash));
+                    let expected_mr_config = format!("01{}", base16ct::lower::encode_string(compose_hash.as_ref()));
                     
                     if !mr_config_id_hex.starts_with(&expected_mr_config) {
                         return Err(format!(
@@ -349,7 +352,7 @@ impl ServerCertVerifier for NearAiTlsVerifier {
         let spki_der = cert.tbs_certificate.subject_pki.raw;
         
         let spki_hash = aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, spki_der);
-        let live_spki_hex = hex::encode(spki_hash);
+        let live_spki_hex = base16ct::lower::encode_string(spki_hash.as_ref());
 
         let map = self.pinned_spki_hashes.try_read()
             .map_err(|_| RustlsError::General("Lock poisoned".into()))?;
@@ -357,7 +360,7 @@ impl ServerCertVerifier for NearAiTlsVerifier {
         if let Some(expected_spki) = map.get(&domain) {
             let mut matched = false;
             for pin_hex in expected_spki {
-                if let Ok(pin_bytes) = hex::decode(pin_hex)
+                if let Ok(pin_bytes) = base16ct::lower::decode_vec(pin_hex)
                     && aws_lc_rs::constant_time::verify_slices_are_equal(spki_hash.as_ref(), &pin_bytes).is_ok() {
                         matched = true;
                     }

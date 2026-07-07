@@ -34,17 +34,19 @@ pub fn parse_models(data_array: &[Value]) -> HashMap<String, crate::DynamicModel
         
         if is_text_model && (owned_by == "tinfoil" || has_tinfoil_provider)
             && let Some(id) = model_val.get("id").and_then(|v| v.as_str()) {
-                let mut name = id.to_string();
-                
-                if name == "glm-5-1" {
-                    name = "glm-5.1".to_string();
-                } else if name == "gemma4-31b" {
-                    name = "gemma-4-31b".to_string();
-                } else if name == "kimi-k2-6" {
-                    name = "kimi-k2.6".to_string();
-                } else if name == "llama3-3-70b" {
-                    name = "llama-3.3-70b-instruct".to_string();
-                }
+                // A couple of Tinfoil ids are irregular in ways the universal
+                // `standardize_model_name` dash-to-dot rule can't fix (a missing
+                // hyphen, a missing "-instruct" suffix). Everything else — including
+                // any GLM/Kimi/etc. release using Tinfoil's `X-N-N` version spelling —
+                // goes through the same normalizer every other provider uses, so all
+                // providers land on one consistent model id.
+                let name = if id == "gemma4-31b" {
+                    "gemma-4-31b".to_string()
+                } else if id == "llama3-3-70b" {
+                    "llama-3.3-70b-instruct".to_string()
+                } else {
+                    crate::utils::standardize_model_name(id)
+                };
                 
                 let mut price_in = 0.0;
                 let mut price_out = 0.0;

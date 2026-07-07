@@ -464,7 +464,7 @@ pub async fn verify_chutes_tee_evidence(
 
     // 1. Generate a secure 32-byte nonce
     let nonce_bytes = gen_random_bytes::<32>();
-    let nonce_hex = hex::encode(nonce_bytes);
+    let nonce_hex = base16ct::lower::encode_string(&nonce_bytes);
 
     // 2. Fetch TEE evidence
     let url = format!("{}/chutes/{}/evidence?nonce={}", api_base, chute_id, nonce_hex);
@@ -543,7 +543,7 @@ pub async fn verify_chutes_tee_evidence(
             }
         };
 
-        let hashed_nonce_hex = hex::encode(expected_hash);
+        let hashed_nonce_hex = base16ct::lower::encode_string(expected_hash.as_ref());
         let nras_req_body = serde_json::json!({
             "nonce": hashed_nonce_hex,
             "arch": "HOPPER",

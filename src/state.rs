@@ -123,7 +123,6 @@ pub struct ProviderConfig {
 pub struct AppState {
     /// Tor onion service metadata (domain, cert PEM).
     pub onion_data: std::sync::RwLock<OnionData>,
-    pub db_placeholder: String,
     pub started_at: std::time::Instant,
 
     /// General-purpose HTTP client for provider API calls.
@@ -162,7 +161,6 @@ impl AppState {
     ) -> Self {
         Self {
             onion_data: std::sync::RwLock::new(OnionData::new()),
-            db_placeholder: String::from("(no database configured)"),
             started_at: std::time::Instant::now(),
             http_client,
             near_ai_client,

@@ -101,9 +101,10 @@ pub async fn verify_nvidia_gpu_attestation(
     }
 
     let eat_nonce_str = gpu_claims.get("eat_nonce").and_then(|v| v.as_str()).unwrap_or("");
-    let mut eat_nonce_bytes = [0u8; 32];
-    if hex::decode_to_slice(eat_nonce_str, &mut eat_nonce_bytes).is_err() ||
-       aws_lc_rs::constant_time::verify_slices_are_equal(&eat_nonce_bytes, expected_nonce).is_err() {
+    let eat_nonce_bytes: Option<[u8; 32]> = base16ct::lower::decode_vec(eat_nonce_str)
+        .ok()
+        .and_then(|v| v.try_into().ok());
+    if eat_nonce_bytes.is_none_or(|b| aws_lc_rs::constant_time::verify_slices_are_equal(&b, expected_nonce).is_err()) {
         return Err(format!("FATAL: NVIDIA GPU payload nonce ({}) does not match request nonce", eat_nonce_str));
     }
 

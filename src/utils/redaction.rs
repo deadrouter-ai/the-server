@@ -252,7 +252,12 @@ impl PiiMap {
         result.into_owned()
     }
 
-    pub fn unredact(&self, text: &str) -> String {
+    /// Reference (non-streaming) reversal of `redact`, used to verify the round-trip
+    /// invariant in tests. Not used on the production path — `StreamingUnredactor`
+    /// does the real per-chunk reversal — and its O(map size) full-string `.replace()`
+    /// per entry would be a needless cost if called per request.
+    #[cfg(test)]
+    pub(crate) fn unredact(&self, text: &str) -> String {
         if self.map.is_empty() || !text.contains("<REDACTED_") { return text.to_string(); }
         let mut result = text.to_string();
         for (redacted, original) in self.map.iter() {

@@ -18,9 +18,8 @@ use std::collections::HashMap;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod providers;
+mod i18n;
 pub mod utils;
-mod dns;
-mod quic_h3;
 mod connections;
 mod routes;
 mod currency;
@@ -209,12 +208,13 @@ async fn main() {
         .with_custom_certificate_verifier(verifier)
         .with_no_client_auth();
 
-    let custom_resolver = Arc::new(dns::CustomDnscryptResolver::new());
+    let custom_resolver = Arc::new(dnscrypt::DnscryptResolver::new());
 
     let near_ai_client = reqwest::ClientBuilder::new()
         .use_preconfigured_tls(near_tls_config)
         .dns_resolver(custom_resolver.clone())
-        .timeout(std::time::Duration::from_secs(45))
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .read_timeout(std::time::Duration::from_secs(45))
         .build()
         .expect("Failed to build Near AI reqwest client");
 
@@ -232,7 +232,8 @@ async fn main() {
     let http_client = reqwest::ClientBuilder::new()
         .use_preconfigured_tls(global_tls)
         .dns_resolver(custom_resolver)
-        .timeout(std::time::Duration::from_secs(45))
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .read_timeout(std::time::Duration::from_secs(45))
         .build()
         .expect("Failed to build Global HTTP client");
     let ticket_secrets = Arc::new(tokio::sync::RwLock::new(crypto_e2ee::TicketSecrets::new()));
@@ -266,6 +267,14 @@ async fn main() {
         tinfoil_client,
         Arc::new(utils::dos::DosProtection::new()),
     ));
+
+    let dos_protection_clone = state.dos_protection.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(300)).await; // 5 minutes
+            dos_protection_clone.sweep();
+        }
+    });
 
     // ---- Spawn Dynamic Pricing background update tasks ----
     for provider in state.providers.values() {

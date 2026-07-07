@@ -54,6 +54,19 @@ pub async fn handle_nearai_model_key(
     let path = req.uri.path();
     let model_id = path.trim_start_matches("/v1/models/nearai/").trim_end_matches("/key");
 
+    // Reject anything but a bare model id. `get_direct_endpoint` below builds a URL
+    // by string interpolation; a `/` or `:` here would let a path segment like
+    // `nearai/127.0.0.1:6379/x/key` redirect the (TLS-pinned-but-TOFU) near_ai_client
+    // to an arbitrary internal host — an SSRF gate, not just a cosmetic check.
+    if model_id.is_empty() || !model_id.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_')) {
+        let err = serde_json::to_vec(&serde_json::json!({"error": "Invalid model id"})).unwrap();
+        return (
+            StatusCode::BAD_REQUEST,
+            vec![("Content-Type", "application/json".to_string())],
+            Full::new(Bytes::from(err)).map_err(|e| match e {}).boxed(),
+        );
+    }
+
     // Resolve the direct endpoint through the dynamic model info first,
     // falling back to the static URL construction. This ensures the attestation
     // is fetched from the exact same enclave that will serve the chat request.

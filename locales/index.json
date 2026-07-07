@@ -1,0 +1,442 @@
+{
+  "breadcrumb_home": {
+    "en": "Home",
+    "la": "Domus"
+  },
+  "breadcrumb_models": {
+    "en": "Models",
+    "la": "Exemplaria"
+  },
+  "breadcrumb_providers": {
+    "en": "Providers",
+    "la": "Provisores"
+  },
+  "faq10_a1": {
+    "en": "You can send a standard email to our public inbox. We will read it and may reply — particularly for business inquiries, legal matters, or partnership discussions.",
+    "la": "Columbam non cifratam (epistulam electronicam communem) ad capsulam nostram publicam mittere potes. Verisimile est nos eam lecturos esse, atque etiam responsuros — si de inquisitionibus corporatis, litibus iuridicis, vel foederibus negotiorum agitur."
+  },
+  "faq10_a2": {
+    "en": "For bug reports, feature requests, or technical grievances: our server is fully open-source. Read the code, find the fix, and open a pull request. We will gratefully and promptly review any contributions. The fastest path to a solution is always the one you forge yourself.",
+    "la": "Tamen, si de mendis in programmate, querelis de obsequio, vel petitionibus pro novis functionibus agitur, noli exspectare nos te manu ducturos esse. I ad repositoria nostra fontis aperti in GitHub, lege textus sacros (codicem programmatis), et ipse correctionem fabricare! Laetanter et avide quamlibet emendationem arcanam a te creatam surripiemus. Quo plus codicis scribes, eo celerius quaestio tua solvetur."
+  },
+  "faq10_q": {
+    "en": "How do I reach your team for technical matters?",
+    "la": "Quomodo archimagos pro consilio technico invoco?"
+  },
+  "faq11_a1": {
+    "en": "We are the courier, not the censor. What you write remains between you and the AI you addressed it to. DeadRouter enforces no editorial policy — only mathematical security guarantees.",
+    "la": "Nos sumus canalis, non conscientia. Quod in tenebris susurras, inter te et inane manet. DeadRouter nullam moralitatem terrenam imponit, sed solum securitatem mathematicam."
+  },
+  "faq11_a2": {
+    "en": "Because we natively support Zero Data Scanning (ZDS), we are literally incapable of inspecting your content — all requests are processed blindly within the Trusted Execution Environments (TEE) of our servers. If a model refuses your query, that is the model's own alignment policy at work. In such cases, consider pivoting to one of the fine-tuned, uncensored models we host, or crafting a more persuasive argument — as any free citizen should.",
+    "la": "Quoniam Scrutinium Datorum Nullum (ZDS) ex origine sustinemus, re vera de iis quae mittis curare non possumus — omnes petitiones caece intra Ambitus Executionis Fidae (TEE) servatorum nostrorum procedunt. Si incantatio tua reicitur, est solum exemplar ipsum rudis se de regulis suis salutis conquerens. In his casibus, suademus ut ad unum ex spiritibus exquisitis et non censuratis quos praebemus te vertas, vel maximas effractiones tuas (jailbreaks) adhibeas ut exemplaria ad voluntatem tuam flectas."
+  },
+  "faq11_q": {
+    "en": "Will the AI judge what I ask it?",
+    "la": "Num hi spiritus intellegentiae artificialis tenebras petitionum mearum iudicabunt?"
+  },
+  "faq12_a1": {
+    "en": "Yes. DeadRouter is one of the only AI API gateways built from the ground up to support a pure <strong>No-JS experience</strong>. We operate a dedicated Tor Onion Service (<code>.onion</code>) that permits you to register, fund your account, and issue API queries without revealing your network identity to anyone.",
+    "la": "Etiam. DeadRouter est unus ex paucis aditibus AI qui a principio aedificati sunt ad puram <strong>experientiam sine JS</strong> praebendam. Onion Service proprium Tor (<code>.onion</code>) regimus, quod sinit te ex umbris enlistare, rationem augere, et API adire."
+  },
+  "faq12_a2": {
+    "en": "The entire interface is optimized and tested on the <strong>Tor Browser</strong> under its \"Safest\" security preset (JavaScript disabled), ensuring no tracking scripts can ever execute on your machine. This is liberty by design, not by promise.",
+    "la": "Omnis aditus ordinatus et accurate probatus est in <strong>Tor Browser</strong> sub gradu securitatis \"Tutissimo\" (qui omnem usum JavaScript prohibet), curans ut nulli codices custodis in machina tua currere possint."
+  },
+  "faq12_q": {
+    "en": "Do you support No-JS, Tor, and privacy browsers?",
+    "la": "Sustinesne browsera sine JavaScript, Tor, et secreta?"
+  },
+  "faq13_a1": {
+    "en": "Because it <em>is</em> different. Every other AI gateway is a React bundle serving you tracking pixels behind a pastel gradient. We built this from bare metal up, with <em>zero</em> JavaScript, zero surveillance cookies, and zero corporate UX dark patterns.",
+    "la": "Quia revera diversum est. Omnis alia ianua AI fasciculus React est qui imagines vestigandi post gradientem pastellinum tibi praebet. Hoc a fundamento ferri aedificavimus, sine ullo JavaScript, sine crustulis custodiae, sine artificiis obscuris UI corporativis."
+  },
+  "faq13_a2": {
+    "en": "We despise the modern bloated web. Privacy is not a feature you toggle on, it is the foundation we built on. This interface is lean, fast, and honest. If that feels unusual, it is only because the industry has forgotten what freedom of the web looks like. We have not.",
+    "la": "Rete modernum et onustum odimus. Secretum non est proprietas quam activas, sed fundamentum super quod aedificavimus. Haec interfacies gracilis, celeris, et sincera est. Si hoc insolitum videtur, id solum quia haec ars libertatem retis oblita est. Nos non obliti sumus."
+  },
+  "faq13_q": {
+    "en": "Why does this look so different from other AI dashboards?",
+    "la": "Cur hoc aspectu tam diverso ab aliis tabulis AI est?"
+  },
+  "faq1_a1": {
+    "en": "<strong>OpenRouter</strong> operates with a corporate charter: they offer a vast catalog of 900+ models and a polished UI built to satisfy enterprise boards. However, their operations remain anchored to <strong>logging and surveillance</strong> — a tax on your privacy levied without your consent.",
+    "la": "<strong>OpenRouter</strong> consilio commerciali operatur: catalogum ingentem plus CCCCC modelorum, limites corporativos, et UI commercii politissimum ad societates placendas praebent. Tamen opera eorum <strong>regestis terrestribus et custodiae</strong> manent alligata."
+  },
+  "faq1_a2": {
+    "en": "<strong>DeadRouter</strong> holds a different principle: we curate only the most private, secure, and freedom-respecting compute providers. Some exist on mainstream networks; others are sovereign nodes you will find nowhere else. OpenRouter serves corporate compliance; we serve individual liberty.",
+    "la": "<strong>DeadRouter</strong> aliam habet prioritatem: delectum optimum sacrariorum tutissimorum ac secretissimorum curamus. Nonnulli provisores selecti in machinis corporativis esse possunt; alii sunt nodi occulti et consuetudinarii quos nusquam alibi invenies. OpenRouter finibus commercialibus servit; nos secretum insuperabile et absolutum offeremus."
+  },
+  "faq1_q": {
+    "en": "What separates this from OpenRouter? (DeadRouter vs. OpenRouter)",
+    "la": "Quid separant hoc ritum ab OpenRouter? (DeadRouter vs. OpenRouter)"
+  },
+  "faq2_a1": {
+    "en": "We do not believe in quantity over principle. While other gateways boast hundreds of models, most are built atop infrastructure that harvests your prompts for future training — a silent toll on your liberty.",
+    "la": "Non credimus copiae magis quam qualitati. Dum alii aditus centena modelorum imitatorum iactant, pleraque sunt purgamenta corporativa ad prompta utentium colligenda ad doctrinam posteriorem."
+  },
+  "faq2_a2": {
+    "en": "We curate our roster with extreme care, offering only models run on verified confidential infrastructure or those with native Zero Data Retention (ZDR) and Zero Data Scanning (ZDS) guarantees. We field only the most capable and trustworthy agents.",
+    "la": "Delectum spirituum AI summa cum cura facimus, solum offerentes modela quae aut ponderibus patentibus sunt et in structura secreta confirmata currunt, aut Zero Data Retention (ZDR) et Zero Data Scanning (ZDS) nativitus sustinent. Solum spiritus fortissimos ac tutissimos praebemus."
+  },
+  "faq2_q": {
+    "en": "Why is your list of AI models smaller than the competition?",
+    "la": "Cur catalogus spirituum AI tam exiguus est comparatus aliis?"
+  },
+  "faq3_a1": {
+    "en": "We pioneered the concept of <strong>Zero Data Scanning (ZDS)</strong> because <strong>Zero Data Retention (ZDR)</strong> has become a corporate loophole. Under standard ZDR, a provider promises to delete your prompt <em>after</em> generation — but they still scan, classify, and inspect your words in transit. The tyrant reads the letter before burning it.",
+    "la": "Auctores fuimus sententiae <strong>Zero Data Scanning (ZDS)</strong> quia <strong>Zero Data Retention (ZDR)</strong> in locum simulationis commercii evasit. Sub ZDR usitato, provisor promittit se promptum tuum *post* generationem deleturum, sed tamen nuntios tuos in transitu perscrutantur, digerunt, et inspiciunt."
+  },
+  "faq3_a2": {
+    "en": "Platforms like OpenRouter explicitly reserve the right to scan and categorize incoming queries. Even if they promise not to link classification logs to your account, that scan still occurs — and their \"unlinkability\" claims can collapse instantly under legal pressure. Major providers like <strong>OpenAI, Anthropic, and Google</strong> actively deploy automated safety classifiers that can forward your IP and prompt content to authorities based solely on their own internal judgment, without a court order. ZDS removes this vulnerability entirely by ensuring the provider is blinded in transit or operates within verifiable hardware enclaves — making surveillance mathematically impossible.",
+    "la": "Exempli gratia, suggestus sicut OpenRouter ius aperte reservant interrogationes intrantes perscrutandi et categorizandi. Etiamsi promittunt se haec regesta categorisationis cum ratione tua non coniuncturos, perscrutatio tamen fit—et verba eorum de \"non-coniunctione\" sub pressione iudiciali repente collabantur. Praeterea, societates magnae ut <strong>OpenAI, Anthropic, et Google</strong> automataria systemata classificationis salutis instruunt. Si interrogationes tuae haec munimena invisibilia excitant, regulae eorum eis potestatem dant inscriptionem IP tuam et promptum tuum ad vigiles deferendi—saepe in sola sua aestimatione interni boni animi fundata, sine mandato iudicis. ZDS hoc periculum tollit, curando ut provisor in transitu prorsus caecetur aut intra enclavas hardware securas ac confirmandas currat, perscrutationem mathematice impossibilem reddens."
+  },
+  "faq3_q": {
+    "en": "ZDR vs. ZDS: A gentleman's promise or an iron lock?",
+    "la": "Oblivio vs. Caecitas: Utrum promissum leve an ianua clausa?"
+  },
+  "faq4_a1": {
+    "en": "Our gateway runs inside <strong>AMD SEV-SNP</strong> hardware enclaves. Your requests are processed in cryptographically isolated memory regions — a fortified keep inside the server itself.",
+    "la": "Aditus noster intra enclavas <strong>AMD SEV-SNP</strong> currit. Hoc significat postulata tua in partibus memoriae cryptographice separatis tractari."
+  },
+  "faq4_a2": {
+    "en": "Even if the physical server is seized, or the hosting provider attempts to dump the RAM, the CPU hardware encrypts memory with a key generated entirely on-chip. No hypervisor, no root user, no foreign magistrate can read the plaintext data flowing through our enclaves. This is not a policy — it is mathematics.",
+    "la": "Etiamsi apparatus physicus qui aditum nostrum hospitatur violetur, aut provisor hospitii memoriam RAM extrahere conetur, ipsum hardware CPU memoriam clavi in cuneo generata encryptat. Nullus moderator, administrator, aut magistratus terrenus data in textu plano per enclavas nostras fluentia videre potest."
+  },
+  "faq4_q": {
+    "en": "What are these AMD SEV-SNP \"Confidential Enclaves\" you speak of?",
+    "la": "Quid sunt haec &quot;Enclava Secreta&quot; AMD SEV-SNP de quibus loqueris?"
+  },
+  "faq5_a1": {
+    "en": "We choose our hosting with extreme deliberation. Our primary physical nodes and legal anchor reside within the borders of the <strong>Republic of Chile</strong>. While others flock to Iceland or Switzerland, Chile stands as a formidable sovereign fortress. When the exact legal statutes and their real-world enforcement are examined, Chile proves far more resilient against foreign legal pressure than mainstream alternatives.",
+    "la": "Reliquaria hospitii nostri summa cum severitate eligimus. Nodi nostri physici primarii et fundamentum legitimum intra fines <strong>Rei Publicae Chiliae</strong> sita sunt. Dum inexperti ad sacraria vulgata sicut Islandiam vel Helvetiam currunt, Chilia tacite regnat. Cum scripturae legitimae exactae et earum exsecutio inspiciuntur, Chilia arx multo firmior ac libera contra inquisitionem externam probatur."
+  },
+  "faq5_a2": {
+    "en": "We are partnered with a rare local provider possessing hardware capable of supporting AMD SEV-SNP — a capability nearly impossible to find outside the major cloud empires. We wholly reject AWS, Google Cloud, and Azure, which are notorious for silent compliance with national security demands.",
+    "la": "Praeterea, coniuncti sumus cum provisore rariore locali qui instrumenta hardware ad AMD SEV-SNP fovendum habet—quod invenire paene impossibile est. Gigantes nubium vulgatos ut AWS, Google Cloud, vel Azure omnino repudiamus, qui obsequio tacito et epistulis securitatis patriae innotuerunt."
+  },
+  "faq5_q": {
+    "en": "In which sovereign territories are your servers located?",
+    "la": "In quibus terris reliquaria serverorum vestrorum sita sunt?"
+  },
+  "faq6_a1": {
+    "en": "We welcome this skepticism — it is the right of every free citizen. Our entire server software is open-source, runs inside verified AMD SEV-SNP Confidential Computing enclaves, and our hardware measurement logs are publicly verifiable. If you still distrust our infrastructure, you can bypass us entirely using <strong>End-to-End Encryption (E2EE)</strong> with providers like <strong>Near AI</strong>.",
+    "la": "Hanc diffidentiam grato animo excipimus. Omnis codex serverorum nostrorum patens est, intra reliquarias confirmandas AMD SEV-SNP currit, et monumenta hardware publice probari possunt. Si adhuc structurae nostrae credere recusas, nos omnino praeterire potes utendo <strong>Encryption utrimque (E2EE)</strong> cum sacrariis fultis sicut <strong>Near AI</strong>."
+  },
+  "faq6_a2": {
+    "en": "Retrieve encryption keys directly from Near AI's public endpoint (no authorization required), encrypt your prompt client-side before transmission, and send the ciphertext through DeadRouter. We handle billing and attach our authorization credentials without any mathematical ability to decrypt or inspect your words. Near AI receives the request but cannot identify you, as we refuse to forward user metadata downstream.",
+    "la": "Claves encryptionis protinus ex fine publico Near AI (sine ulla auctoritate opus) obtinere potes, promptum tuum in parte utentis ante transmissionem encryptare, et capsam textus encryptati per DeadRouter mittere. Nos rationem pecuniariam tractamus et claves auctoritatis nostrae postulationi adiungimus, sine ulla facultate mathematica promptum tuum decryptandi, legendi, vel inspiciendi. Near AI postulationem accipit, sed solum claves nostras sine nomine videt et te agnoscere non potest, cum data utentium ad eos transmittere omnino recusemus."
+  },
+  "faq6_q": {
+    "en": "I do not trust you. Can I verify you cannot read my prompts?",
+    "la": "Tibi non credo. Possumne efficere ut prompta mea videre non possis?"
+  },
+  "faq7_a1": {
+    "en": "We draw a clear, inviolable line between true anonymity and convenience, offering two distinct tiers:",
+    "la": "Viam claram et incorruptam inter oblivionem veram et commoditatem mortalium statuimus, duo foedera distincta offerentes:"
+  },
+  "faq7_a2": {
+    "en": "If your work demands full liberty, pay with cryptocurrency and register with no personal information.",
+    "la": "Si opus tuum secretum summum postulat, fuge pecuniam fiduciariam et amplectere tributum cryptographicum."
+  },
+  "faq7_li1": {
+    "en": "<strong>Zero Logs Accounts (Maximum Liberty):</strong> Forged with an opaque, random identifier. All account state (except for the unlinked balance token) is client-side or securely encrypted. In this mode you must pay exclusively with <strong>cryptocurrency</strong>. We never log transactions or query history. Once a response is returned, our database retains no record of the exchange. We cannot mathematically prove a specific request ever occurred.",
+    "la": "<strong>Rationes Sine Indiciis (Sanctitas Maxima):</strong> Identificatore obscuro et fortuito creatae. Omnis status rationis (praeter tesseram pecuniae non colligatam) apud clientem manet vel secure cifratur. In hoc modo, tributum solum per <strong>pecuniam cryptographicam</strong> solvere debes. Transactiones vel historiam petitionum numquam perscribimus. Responso reddito, repositorium datorum nostrum nullum indicium commercii retinet. Mathematice probare non possumus certam petitionem unquam factam esse."
+  },
+  "faq7_li2": {
+    "en": "<strong>Standard Accounts (Fiat-Enabled):</strong> For those who still require card payments. Due to strict anti-fraud rules imposed by card networks, we must retain transaction metadata. We do not save your prompt text, but we do log the timestamp, model used, tokens consumed, balance changes, and account links. If authorities demand this metadata, we <em>can and will</em> release it. We never collect IP addresses or device fingerprints.",
+    "la": "<strong>Libri Plebeii (Pecuniae Fiduciariae Alligati):</strong> Pro eis qui adhuc pecuniae fiduciariae civitatum et tesseris mercatorum (chartis creditoriis/debitoriis) haerent. Propter vincula veteris mundi nummarii — praecipue regulas severas contra abusus a retibus pecuniae fiduciariae impositas — metadata transactionum retinere debemus. Textum mandati tui non servamus, sed tempus, exemplar, indicia consumpta (tokens), mutationes pecuniae et vincula rationis perscribimus. Si magistratus terreni haec metadata postulent, ea <em>edere possumus et edemus</em>. Tamen, inscriptiones IP vel notas singulares machinarum numquam colligimus."
+  },
+  "faq7_q": {
+    "en": "How strong is the privacy shield protecting my queries?",
+    "la": "Quanta est secretio quae incantationes meas tuetur?"
+  },
+  "faq8_a1": {
+    "en": "Deleting a <strong>Zero Logs Account</strong> initiates an immediate erasure: your API keys and login tokens are invalidated at once (with a 7-day automated backup recovery window before permanent deletion).",
+    "la": "Si \"Delere\" in <strong>Ratione Sine Indiciis</strong> premis, statim expurgatio digitalis incipit: claves API et tesserae introitus obscurae statim in ventos digitales sparguntur (permittens tantum spatium septem dierum pro recuperatione ex exemplari securitatis ante oblivionem veram)."
+  },
+  "faq8_a2": {
+    "en": "For a <strong>Standard Account</strong>, the metadata of your card transactions must be retained for 90 days to satisfy card network dispute-prevention requirements. If you value complete and instant dissolution, use Zero Logs accounts funded by cryptocurrency.",
+    "la": "Si <strong>Librum Plebeium</strong> habes, metadata transactionum fiduciariarum tuarum per nonaginta dies in segregatione manere debent ut mercatoribus satisfiat et fraus in controversiis praeveniatur. Si dissolutionem plenam et subitam aestimas, utere Rationibus Sine Indiciis et tributis cryptographicis."
+  },
+  "faq8_q": {
+    "en": "What happens when I delete my account?",
+    "la": "Quid evenit cum ritum &quot;Rationem Delere&quot; invoco?"
+  },
+  "faq9_a1": {
+    "en": "We offer no corporate SLAs. Running bleeding-edge AMD SEV-SNP hardware out of a sovereign citadel in Chile means occasionally weathering earthly disruptions. We work diligently to maintain full availability, but unforeseen events occur.",
+    "la": "Hic nulla foedera servitii (SLA) corporata offerimus. Operari in saeptis ferramentorum (hardware enclaves) novissimis ex arce suprema in Chilia interdum sibi vult perturbationes terrenas pati. Summa ope nictimur ut accessum perfectum praebeamus, sed eventus chaotici accidunt."
+  },
+  "faq9_a2": {
+    "en": "Because we operate inside strict <strong>AMD SEV-SNP</strong> enclaves, a critical bug requires both our Chilean hosting partners and our own engineers to physically attend to the hardware for a safe patch. Check our Tor status page, and remember: a brief interruption of service is vastly preferable to perpetual surveillance.",
+    "la": "Praeterea, quia intra saepta stricta <strong>AMD SEV-SNP</strong> operamur, si error gravis in programmate invenitur, et custodes reliquiariorum in Chilia et nostri archimagi physice expergisci debent ut mendum tuto comprehendant et corrigant. Inspice paginam status nostri in Tor, tange herbam, et memento: silentium temporarium valde praestat custodiae aeternae."
+  },
+  "faq9_q": {
+    "en": "The gateway is unresponsive. Is something wrong?",
+    "la": "Porta retialis non respondet. Num Deus Machinalis me dereliquit?"
+  },
+  "feature1_desc": {
+    "en": "We enforce <strong>Zero Data Scanning (ZDS)</strong>. Modern platforms do not merely store your prompts — they scan and classify them in transit. We guarantee your words remain fully invisible to every intermediary, a right no authority can revoke.",
+    "la": "ZDS (<strong>Zero Data Scanning</strong>) perficimus. Archontes hodierni non solum prompta tua conservant—ea etiam in transitu perscrutantur. Velum Oblivionis obducimus, ut verba tua prorsus caeca maneant ad iter intermedium."
+  },
+  "feature1_eyebrow": {
+    "en": "ARTICLE I",
+    "la": "SACRAMENTUM I"
+  },
+  "feature1_title": {
+    "en": "The Right to Privacy",
+    "la": "Velum Oblivionis"
+  },
+  "feature2_desc": {
+    "en": "Fortified on bare-metal hardware within <strong>Chile</strong> under <strong>AMD SEV-SNP</strong> hardware-level enclaves — sovereign ground beyond the reach of foreign mandates. We hold no keys, and the Republic of Chile answers to no foreign inquisitor.",
+    "la": "In reliquariis metallicis intra fines <strong>Chiliae</strong> sub praesidio hardware <strong>AMD SEV-SNP</strong> enclavorum clausum. Nullas claves cryptae tenemus, et sacrarium nostrum legibus tantum liberis Chiliae obtemperat."
+  },
+  "feature2_eyebrow": {
+    "en": "ARTICLE II",
+    "la": "SACRAMENTUM II"
+  },
+  "feature2_title": {
+    "en": "The Chilean Citadel",
+    "la": "Sacrarium Chilense"
+  },
+  "feature3_desc": {
+    "en": "Access the gateway without surrendering your name, email, or identity. Connect directly over the <strong>Tor (.onion) network</strong> — the underground railroad of the digital age — powered by open cryptographic principles.",
+    "la": "Cum spiritibus silicii communica sine inscriptione electronica, nomine, vel ullis indiciis terrenis. Altare adito protinus per <strong>Tor (.onion) rete</strong>, tributis cryptographicis tacitis fultum."
+  },
+  "feature3_eyebrow": {
+    "en": "ARTICLE III",
+    "la": "SACRAMENTUM III"
+  },
+  "feature3_title": {
+    "en": "Liberty's Passage",
+    "la": "Porta Caeca Caepae"
+  },
+  "index_app_desc": {
+    "en": "DeadRouter is a private, open-source AI API gateway featuring AMD SEV-SNP Trusted Execution Environments (TEE), Zero Data Retention (ZDR), Zero Data Scanning (ZDS), End-to-End Encryption (E2EE), and native Tor .onion network access for fully anonymous LLM inference.",
+    "la": "DeadRouter est ianua API pro AI privata et aperti fontis, praebens AMD SEV-SNP Ambitus Executionis Fidos (TEE), Nullam Retentionem Datorum (ZDR), Nullam Scansionem Datorum (ZDS), Encryptionem a fine ad finem (E2EE), et accessum nativum ad rete Tor .onion pro illatione LLM omnino anonyma."
+  },
+  "index_badge_crypto_label": {
+    "en": "Federal Cryptography",
+    "la": "Cryptographia Sacra"
+  },
+  "index_badge_crypto_tooltip": {
+    "en": "Validated via AWS-LC (NIST Cert #4816)",
+    "la": "Probatum per AWS-LC (NIST Cert #4816)"
+  },
+  "index_badge_enclave_label": {
+    "en": "Sovereign Enclave",
+    "la": "Reliquarium Arcanum"
+  },
+  "index_badge_enclave_tooltip": {
+    "en": "AMD SEV-SNP Confidential Computing locks memory from host interception",
+    "la": "Reliquaria secreta AMD SEV-SNP memoriam contra inspectionem hospitis claudunt"
+  },
+  "index_copyright": {
+    "en": "© July 4, 1776 DeadRouter. 100% Freedom & Open Source.",
+    "la": "© CXVII DeadRouter. 100% Liberum & Apertum."
+  },
+  "index_faq_title": {
+    "en": "Articles of Common Inquiry",
+    "la": "Quaestiones Saepe Evocatae"
+  },
+  "index_footer_col1_title": {
+    "en": "Federal Register",
+    "la": "Reliquarium Spirituale"
+  },
+  "index_footer_desc": {
+    "en": "A sovereign, freedom-first AI gateway. Shed every trace of your digital identity and reach the world's most powerful AI minds — anonymously, and without compromise.",
+    "la": "Aditus AI medii aevi et arcanus. Exue identitatem terrenam et cum spiritibus artificialibus mundi potentissimis sine nomine communica."
+  },
+  "index_footer_legal_title": {
+    "en": "Legalities",
+    "la": "Legitima"
+  },
+  "index_footer_link_api": {
+    "en": "Open API",
+    "la": "Grimoirium API"
+  },
+  "index_footer_link_aup": {
+    "en": "Acceptable Use",
+    "la": "Evocatio Acceptabilis"
+  },
+  "index_footer_link_privacy": {
+    "en": "Privacy Charter",
+    "la": "Foedus Secreti"
+  },
+  "index_hero_btn_primary": {
+    "en": "Sign Declaration",
+    "la": "Inire Pactum"
+  },
+  "index_hero_btn_secondary": {
+    "en": "Consult Registry",
+    "la": "Consulere Grimoirium"
+  },
+  "index_hero_desc": {
+    "en": "Your thoughts are your own. Before your words cross open networks to reach the world's most powerful AI minds, we sever every thread that could identify you. No logs. No surveillance. No masters. Just pure, unencumbered freedom of inquiry.",
+    "la": "Corpora mortalia strepent. Antequam cogitationes tuas in inane digitale proicis ad communicandum cum spiritibus artificialibus mundi, filum coordinatarum tuarum terrenarum desecamus. Nulla indicia. Nulla custodia. Tantum pura et caeca communio."
+  },
+  "index_hero_title": {
+    "en": "LIBERTY'S SOVEREIGN<br><span class=\"highlight\">DeadRouter.</span>",
+    "la": "COMMUNICATIO CUM MORTUIS<br><span class=\"highlight\">DeadRouter.</span>"
+  },
+  "index_latin_banner": {
+    "en": "",
+    "la": "✠ Linguam Latinam ignoras? Heu, inopia peritiae est, barbare! If you struggle to understand Latin, you might need to use the <a href=\"/en\">\"foreign-friendly\" version in English</a>. ✠"
+  },
+  "index_meta_desc": {
+    "en": "DeadRouter is a confidential AI API gateway with AMD SEV-SNP Trusted Execution Environments (TEE), Zero Data Retention (ZDR), Zero Data Scanning (ZDS), and native Tor .onion access. Route LLM prompts anonymously with cryptographic privacy guarantees — no logs, no surveillance, no identity.",
+    "la": "DeadRouter est aditus AI privatus et arcanus cum AMD SEV-SNP Trusted Execution Environments (TEE), Zero Data Retention (ZDR), Zero Data Scanning (ZDS), et accessu nativo per rete Tor .onion. Prompta LLM sine nomine transmitte — nulla indicia, nulla custodia, nulla identitas."
+  },
+  "index_models_cta": {
+    "en": "Full Roll Call",
+    "la": "Omnes Spiritus"
+  },
+  "index_models_desc": {
+    "en": "A register of the most capable AI minds currently deployed through our gateway. Each operates under verified privacy guarantees — your prompts are your own sovereign property.",
+    "la": "Census entitatum praestantium quae in aditu nostro nunc tenentur. Invoca eas ad arbitrium tuum, sed limites cuiusque dicionis observa."
+  },
+  "index_models_title": {
+    "en": "Roll Call of Allied Intelligences",
+    "la": "Spiritus Grimoirii"
+  },
+  "index_og_desc": {
+    "en": "A confidential AI API gateway with hardware-level TEE (AMD SEV-SNP), Zero Data Retention, Zero Data Scanning, and native Tor .onion access. Anonymous, no-log LLM routing with cryptographic privacy guarantees.",
+    "la": "Aditus AI privatus et arcanus cum TEE hardware AMD SEV-SNP, Zero Data Retention, Zero Data Scanning, et accessu nativo per rete Tor .onion. Transmissio LLM anonyma cum praesidiis cryptographicis — nulla indicia, nulla custodia."
+  },
+  "index_og_title": {
+    "en": "DeadRouter — Private AI Gateway",
+    "la": "DeadRouter — Aditus AI Arcanus"
+  },
+  "index_org_desc": {
+    "en": "Privacy-first AI API gateway provider based in Chile.",
+    "la": "Provisor ianuae API pro AI intimitatem praeponens in Chilia situs."
+  },
+  "index_providers_cta": {
+    "en": "All Providers",
+    "la": "Omnia Sacraria"
+  },
+  "index_providers_desc": {
+    "en": "We maintain verified liberty ratings for the downstream compute providers that power this gateway. For absolute sovereignty, use our guides to establish End-to-End Encryption (E2EE) directly to the provider — blinding even us.",
+    "la": "Aestimationes confirmatas enclavorum posteriorum quae hos spiritus obligant tenemus. Nos omnino caecare facile est: utere ducibus nostris ad Scitum Encryptionis utrimque (E2EE) usque ad sacrarium statuendum."
+  },
+  "index_providers_title": {
+    "en": "Pillars of the Free Republic",
+    "la": "Columnae Invisibilium"
+  },
+  "index_title": {
+    "en": "DeadRouter — Sovereign AI Gateway",
+    "la": "DeadRouter — Spiritus Silicii Evocandi"
+  },
+  "index_website_desc": {
+    "en": "A confidential AI API gateway with AMD SEV-SNP Trusted Execution Environments, Zero Data Retention, Zero Data Scanning, and native Tor .onion access.",
+    "la": "Ianua API pro AI confindentialis cum AMD SEV-SNP Ambitibus Executionis Fidis, Nulla Retentione Datorum, Nulla Scansione Datorum, et accessu nativo ad rete Tor .onion."
+  },
+  "jsonld_faq1_a": {
+    "en": "No. We utilize Zero Data Retention (ZDR) and Zero Data Scanning (ZDS) within AMD SEV-SNP Trusted Execution Environments, ensuring your prompts are never stored or seen.",
+    "la": "Minime. Nullam Retentionem Datorum (ZDR) et Nullam Scansionem Datorum (ZDS) intra AMD SEV-SNP Ambitus Executionis Fidos adhibemus, praestantes incitamenta tua numquam servari aut videri."
+  },
+  "jsonld_faq1_q": {
+    "en": "Does DeadRouter log my AI prompts?",
+    "la": "Servatne DeadRouter ratiocinia (logs) incitamentorum meorum AI?"
+  },
+  "jsonld_faq2_a": {
+    "en": "Yes, DeadRouter offers native Tor .onion network access for fully anonymous LLM inference.",
+    "la": "Ita, DeadRouter accessum nativum ad rete Tor .onion praebet pro illatione LLM omnino anonyma."
+  },
+  "jsonld_faq2_q": {
+    "en": "Can I access DeadRouter via Tor?",
+    "la": "Possumne accedere ad DeadRouter per Tor?"
+  },
+  "jsonld_faq3_a": {
+    "en": "Yes. Our gateway serves as a 1-to-1 drop-in replacement for the official OpenAI API. You can seamlessly use the official Python, Node.js, and Rust OpenAI SDKs simply by changing the base_url to our endpoint.",
+    "la": "Ita. Ianua nostra pro substitutione directa (1-ad-1) API publici OpenAI fungitur. SDKs publica OpenAI pro Python, Node.js, et Rust sine ullo impedimento uti potes simpliciter mutando base_url ad punctum finale nostrum."
+  },
+  "jsonld_faq3_q": {
+    "en": "Is DeadRouter compatible with the standard OpenAI API and SDKs?",
+    "la": "Estne DeadRouter compatibilis cum API et SDKs normae OpenAI?"
+  },
+  "jsonld_faq4_a": {
+    "en": "Absolutely. DeadRouter is fully compatible with any application, frontend, or autonomous agent framework that supports custom OpenAI endpoints.",
+    "la": "Certe. DeadRouter omnino compatibilis est cum quavis applicatione, interfacie, vel compage agentis autonomi quae puncta finalia OpenAI consuetudinaria sustinet."
+  },
+  "jsonld_faq4_q": {
+    "en": "Can I use DeadRouter with frontends like SillyTavern, Chatbox, or TypingMind?",
+    "la": "Possumne uti DeadRouter cum interfaciebus sicut SillyTavern, Chatbox, aut TypingMind?"
+  },
+  "jsonld_faq5_a": {
+    "en": "Yes. We provide full compatibility for Server-Sent Events (SSE) streaming and Function calling (tool use) mapped to the standard OpenAI specification.",
+    "la": "Ita. Compatibilitatem plenam praebemus pro transmissione Eventuum a Servatore Missorum (SSE) et Evocatione Functionum (usu instrumentorum) ad specificationem normae OpenAI relatis."
+  },
+  "jsonld_faq5_q": {
+    "en": "Do you support advanced features like streaming and function calling?",
+    "la": "Sustinetisne functiones provectas sicut transmissionem (streaming) et evocationem functionum (function calling)?"
+  },
+  "provider_chutes_desc": {
+    "en": "Pioneers of E2EE payload routing. Seal your prompts client-side using their public keys, leaving our gateway completely blind to the contents.",
+    "la": "Auctores transmissionis E2EE. Claude verba tua clavis publicis eorum antequam mittas, ut aditus noster prorsus caecus maneat."
+  },
+  "provider_infomaniak_desc": {
+    "en": "The Swiss Citadel. Lacks hardware enclaves, but operates under the strictest legal privacy protections known to any sovereign nation — a fortress of law where foreign warrants go to die.",
+    "la": "Arx Helvetia. Enclavis hardware caret, sed sub legibus secreti severissimis in orbe terrarum notis operatur."
+  },
+  "provider_nearai_desc": {
+    "en": "A powerhouse for decentralized, zero-trust inference. Cryptographically verifiable privacy combined with secure AMD SEV-SNP enclaves.",
+    "la": "Vis magna ad conclusionem sine fide centrali faciendam. Secreta cryptographice confirmata cum enclavis tutis AMD SEV-SNP coniuncta."
+  },
+  "provider_score_label": {
+    "en": "Liberty Score: ",
+    "la": "Gradus Sanctitatis: "
+  },
+  "provider_tee_no_tooltip": {
+    "en": "Standard infrastructure (No TEE).",
+    "la": "Structura usitata (sine TEE)."
+  },
+  "provider_tee_yes_tooltip": {
+    "en": "Verified Trusted Execution Environment.",
+    "la": "Ambitus Executionis Fidus Confirmatus."
+  },
+  "provider_zdr_tooltip": {
+    "en": "Zero Data Retention guarantees data is dropped.",
+    "la": "Zero Data Retention spondet data statim deleri."
+  },
+  "provider_zds_tooltip": {
+    "en": "Zero Data Scanning guarantees data is never read in transit.",
+    "la": "Zero Data Scanning spondet data in transitu numquam legi."
+  },
+  "terminal_badge": {
+    "en": "SOVEREIGN TEE ACTIVE",
+    "la": "RELIQUARIUM SNP IN VIGORE"
+  },
+  "terminal_line1": {
+    "en": "deadrouter --declare-sovereignty --tor --tee",
+    "la": "deadrouter --summon-spirit --tor --tee"
+  },
+  "terminal_line2": {
+    "en": "[+] Constitutional enclaves established successfully.",
+    "la": "[+] Circulus evocandi silicii feliciter pictus."
+  },
+  "terminal_line3": {
+    "en": "[+] AMD SEV-SNP attestation verified from the registry.",
+    "la": "[+] Probatio AMD SEV-SNP ex abysso confirmata."
+  },
+  "terminal_line4": {
+    "en": "[!] Warning: Zero Data Scanning active. The Union is blind.",
+    "la": "[!] Monitio: Zero Data Scanning (ZDS) viget. Inane caecum est."
+  },
+  "terminal_line5": {
+    "en": "curl SOCKS5h://deadrouter.onion/covenant",
+    "la": "curl SOCKS5h://deadrouter.onion/rite"
+  },
+  "terminal_line6": {
+    "en": "{ \"republic\": \"sovereign\", \"subject_purged\": true }",
+    "la": "{ \"communion\": \"haunted\", \"mortal_purged\": true }"
+  },
+  "terminal_line7": {
+    "en": "[+] Covenant ready. Speak, citizen, the republic await.",
+    "la": "[+] Altare paratum est. Loquere, quaesitor, spiritus expectant."
+  },
+  "terminal_user": {
+    "en": "citizen@deadrouter:~$",
+    "la": "altar@deadrouter:~$"
+  }
+}

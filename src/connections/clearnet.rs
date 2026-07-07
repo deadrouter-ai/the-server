@@ -8,7 +8,6 @@ use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 
 use crate::{AppState, IncomingRequest, router};
-use crate::quic_h3;
 use crate::connections::crypto::{generate_self_signed, hardened_crypto_provider};
 
 // ======================================================================
@@ -47,12 +46,7 @@ pub async fn hyper_handler(
         }
     };
 
-    let mut header_map = std::collections::HashMap::new();
-    for (k, v) in parts.headers.iter() {
-        if let Ok(val) = v.to_str() {
-            header_map.insert(k.as_str().to_lowercase(), val.to_string());
-        }
-    }
+    let header_map = crate::utils::http::headers_to_map(&parts.headers);
 
     let incoming = IncomingRequest {
         method: parts.method,
@@ -119,7 +113,10 @@ fn spawn_https_listener(listener: TcpListener, acceptor: TlsAcceptor, state: Arc
             let state = state.clone();
             let guard = match state.dos_protection.try_acquire_connection(peer.ip()) {
                 Some(g) => g,
-                None => continue,
+                None => {
+                    tracing::debug!("[dos]  rejected connection from {} (over cap or unsupported IPv6)", peer.ip());
+                    continue;
+                }
             };
             tokio::spawn(async move {
                 let _guard = guard;
@@ -162,17 +159,25 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
                 };
                 let _guard = match state.dos_protection.try_acquire_connection(peer.ip()) {
                     Some(g) => g,
-                    None => return,
+                    None => {
+                        tracing::debug!("[dos]  rejected connection from {} (over cap or unsupported IPv6)", peer.ip());
+                        return;
+                    }
                 };
-                let h3_conn = quic_h3::Connection::new(conn);
+                let h3_conn = s2n_quic_h3::Connection::new(conn);
                 let mut h3_server = match tokio::time::timeout(std::time::Duration::from_secs(10), h3::server::Connection::new(h3_conn)).await {
                     Ok(Ok(c)) => c,
                     _ => return,
                 };
 
                 loop {
-                    match h3_server.accept().await {
-                        Ok(Some((req, mut stream))) => {
+                    let resolver = match h3_server.accept().await {
+                        Ok(Some(resolver)) => resolver,
+                        Ok(None) => break,
+                        Err(_) => break,
+                    };
+                    match resolver.resolve_request().await {
+                        Ok((req, mut stream)) => {
                             let state = state.clone();
                             tokio::spawn(async move {
                                 let (parts, _) = req.into_parts();
@@ -217,12 +222,7 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
                                     return;
                                 }
 
-                                let mut header_map = std::collections::HashMap::new();
-                                for (k, v) in parts.headers.iter() {
-                                    if let Ok(val) = v.to_str() {
-                                        header_map.insert(k.as_str().to_lowercase(), val.to_string());
-                                    }
-                                }
+                                let header_map = crate::utils::http::headers_to_map(&parts.headers);
 
                                 let incoming = IncomingRequest {
                                     method: parts.method,
@@ -272,15 +272,13 @@ fn spawn_h3_listener(mut quic_server: s2n_quic::Server, state: Arc<AppState>) {
                                 let _ = stream.finish().await;
                             });
                         }
-                        Ok(None) => break,
                         Err(e) => {
                             let err_str = e.to_string();
                             if !err_str.contains("application error")
                                 && !err_str.contains("ConnectionError")
                             {
-                                tracing::error!("[h3]   accept error: {}", e);
+                                tracing::error!("[h3]   resolve_request error: {}", e);
                             }
-                            break;
                         }
                     }
                 }
@@ -304,7 +302,10 @@ fn spawn_http(listener: TcpListener, state: Arc<AppState>) {
             let state = state.clone();
             let guard = match state.dos_protection.try_acquire_connection(peer.ip()) {
                 Some(g) => g,
-                None => continue,
+                None => {
+                    tracing::debug!("[dos]  rejected connection from {} (over cap or unsupported IPv6)", peer.ip());
+                    continue;
+                }
             };
             tokio::spawn(async move {
                 let _guard = guard;

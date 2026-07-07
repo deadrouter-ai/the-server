@@ -1,0 +1,150 @@
+{
+  "badge_chile_label": {
+    "en": "Hosted in Chile",
+    "la": "In Chile Collocatum"
+  },
+  "badge_chile_tooltip": {
+    "en": "Hosted in Chile, subject strictly to Chilean privacy laws and sovereign jurisdiction",
+    "la": "In Chile collocatum, legibus secreti Chilensibus et iurisdictioni sui iuris stricte subiectum"
+  },
+  "badge_fips_label": {
+    "en": "FIPS 140-3 Compliant",
+    "la": "FIPS 140-3 Conforme"
+  },
+  "badge_fips_tooltip": {
+    "en": "Validated via AWS-LC (NIST Cert #4816) with userspace CPU Jitter Entropy",
+    "la": "Probatum per AWS-LC (NIST Cert #4816) cum entropia CPU Jitter in spatio usoris"
+  },
+  "badge_sevsnp_label": {
+    "en": "AMD SNP-SEV",
+    "la": "AMD SNP-SEV"
+  },
+  "badge_sevsnp_tooltip": {
+    "en": "AMD SEV-SNP Confidential Computing enclaves prevent host access to memory",
+    "la": "Loculi arcani AMD SEV-SNP accessum hospitis ad memoriam prohibent"
+  },
+  "footer_link_api_documentation": {
+    "en": "API Documentation",
+    "la": "Documentatio API"
+  },
+  "footer_link_aup_full": {
+    "en": "Acceptable Use (AUP)",
+    "la": "Usus Acceptabilis (AUP)"
+  },
+  "footer_link_network_status": {
+    "en": "Network Status",
+    "la": "Status Retis"
+  },
+  "footer_link_privacy_policy": {
+    "en": "Privacy Policy",
+    "la": "Ratio Secreti"
+  },
+  "footer_link_provider_dashboard": {
+    "en": "Account Dashboard",
+    "la": "Tabula Rationis"
+  },
+  "footer_link_terms": {
+    "en": "Terms of Service",
+    "la": "Termini Servitii"
+  },
+  "providers_clear_search": {
+    "en": "Clear Search",
+    "la": "Munda Quaestionem"
+  },
+  "providers_copyright": {
+    "en": "© 2026 DeadRouter. 100% Open Source.",
+    "la": "© 2026 DeadRouter. 100% Fons Apertus."
+  },
+  "providers_data_processing": {
+    "en": "Data Processing",
+    "la": "Tractatio Datorum"
+  },
+  "providers_empty_desc": {
+    "en": "There are currently no active providers on the DeadRouter network.",
+    "la": "Nulli praebitores activi hac hora in rete DeadRouter sunt."
+  },
+  "providers_empty_title": {
+    "en": "No Providers Available",
+    "la": "Nulli Praebitores Praesto"
+  },
+  "providers_footer_col1_title": {
+    "en": "Platform",
+    "la": "Fundamentum"
+  },
+  "providers_footer_desc": {
+    "en": "A highly secure, zero-data-retention anonymization gateway. Connect to top-tier AI providers without leaving a footprint.",
+    "la": "Porta anonymizationis tutissima sine retentione datorum. Iungere praebitoribus AI praestantissimis sine ullo vestigio relicto."
+  },
+  "providers_footer_legal_title": {
+    "en": "Legal",
+    "la": "Iura"
+  },
+  "providers_hero_desc": {
+    "en": "We maintain a factual rating system for every routed provider. Explore their privacy parameters, legal jurisdictions, and sovereign hardware processing details.",
+    "la": "Rationem obiectivam aestimationis pro omni praebitore directo servamus. Explora eorum parametra secreti, iurisdictiones legales, et rationes machinarum sui iuris."
+  },
+  "providers_hero_title": {
+    "en": "Provider <span class=\"highlight\">Database</span>",
+    "la": "Tabula <span class=\"highlight\">Praebitorum</span>"
+  },
+  "providers_legal_location": {
+    "en": "Legal Location",
+    "la": "Locus Legalis"
+  },
+  "providers_meta_desc": {
+    "en": "Browse the decentralized AI provider database. View provider privacy metrics, legal jurisdictions, and sovereign hardware processing details.",
+    "la": "Percurre tabulam praebitorum AI distributam. Vide mensuras secreti, iurisdictiones legales, et rationes machinarum sui iuris."
+  },
+  "providers_meta_title": {
+    "en": "Provider Database - DeadRouter",
+    "la": "Tabula Praebitorum - DeadRouter"
+  },
+  "providers_notfound_after": {
+    "en": "\". Try adjusting your search query.",
+    "la": "\". Confer quaestionem tuam."
+  },
+  "providers_notfound_before": {
+    "en": "We couldn't find any providers matching \"",
+    "la": "Nullos praebitores invenimus qui respondeant verbis \""
+  },
+  "providers_notfound_title": {
+    "en": "No Providers Found",
+    "la": "Nulli Praebitores Inventi"
+  },
+  "providers_privacy_score_prefix": {
+    "en": "Privacy Score: ",
+    "la": "Punctum Secreti: "
+  },
+  "providers_search_btn": {
+    "en": "Search",
+    "la": "Quaere"
+  },
+  "providers_search_placeholder": {
+    "en": "Search providers (e.g., Near, Infomaniak)...",
+    "la": "Quaere praebitores (e.g., Near, Infomaniak)..."
+  },
+  "providers_supported_title": {
+    "en": "DeadRouter Providers",
+    "la": "Praebitores DeadRouter"
+  },
+  "providers_tee_no_tooltip": {
+    "en": "Standard infrastructure (No TEE).",
+    "la": "Infrastructura communis (sine TEE)."
+  },
+  "providers_tee_yes_tooltip": {
+    "en": "Verified Trusted Execution Environment.",
+    "la": "Involucrum Securitatis Verificatum."
+  },
+  "providers_unsupported_title": {
+    "en": "Non-Supported Providers",
+    "la": "Praebitores Non Fulti"
+  },
+  "providers_zdr_tooltip": {
+    "en": "Zero Data Retention guarantees data is dropped.",
+    "la": "Nulla Retentio Datorum notitias abici certificat."
+  },
+  "providers_zds_tooltip": {
+    "en": "Zero Data Scanning guarantees data is never read in transit.",
+    "la": "Nulla Scrutatio Datorum notitias numquam in transitu legi certificat."
+  }
+}
