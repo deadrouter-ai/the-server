@@ -1,0 +1,139 @@
+# create-unikernel config — "sev-snp" profile, Mode A (compile from source)
+#
+# Full AMD SEV-SNP confidential-computing stack: deterministic build, launch measurement
+# covering kernel+initramfs+app, and an optional remote attestation server.
+#
+# Unlike casual, sev-snp always requires this file — zero-config auto-detection only ever
+# produces a casual-profile build.
+#
+# Only sections that differ from create-unikernel.casual.toml are documented in full here
+# ([profile], [attestation], [sev_snp]); see that file for [app], [hardening], [kernel],
+# [network], [output], which work identically.
+
+[project]
+# Pinned to the create-unikernel version that scaffolded this file — `create-unikernel build` refuses to run under a different CLI version (a different version can bundle a different pinned kernel/Dockerfile, changing the built image's bytes). Update this only after a deliberate upgrade, and re-verify reproducibility/measurements afterward.
+create_unikernel_version = "0.0.1"
+
+name = "my-server"
+# Especially important for sev-snp: a different CLI version can bundle a different pinned
+# kernel/Dockerfile, changing the launch measurement even with an identical config. See
+# create-unikernel.casual.toml for the full explanation.
+# create_unikernel_version = "0.1.0"
+
+[profile]
+kind = "sev-snp"
+
+[app]
+mode = "source"
+
+# For sev-snp specifically, consider building via a tagged release workflow (`create-unikernel
+# github init`) so the measurement corresponds to an immutable, inspectable commit rather than
+# whatever's uncommitted on disk.
+[app.source]
+path = "."
+toolchain = "rust"
+package_path = "."
+cargo_profile = "release"
+
+# Alternative: build a separate project's pinned git ref (git_ref = "latest" is rejected for
+# sev-snp — reproducible measurement requires a pinned tag/commit):
+# [app.source]
+# repo = "https://github.com/acme/my-server.git"
+# git_ref = "v1.4.2"
+# toolchain = "rust"
+# package_path = "."
+# cargo_profile = "release"
+
+[app.runtime]
+env = { PORT = "8080" }
+uid = 65534
+gid = 65534
+
+[network]
+mode = "dhcp"
+
+[kernel]
+version = "6.18.33"
+# sha256 = "…"
+
+# [toolchain]
+# See create-unikernel.casual.toml for the full reference. `apt_snapshot = "latest"` is
+# rejected for sev-snp — pin an explicit timestamp instead. `sev_snp_measure_ref` (the
+# virtee/sev-snp-measure git commit) is sev-snp-only and lives here too.
+# sev_snp_measure_ref = "…"
+
+[machine]
+# Guest memory for the rendered libvirt XML and the convenience QEMU run-script. Default 2048.
+memory_mib = 2048
+# `machine.vcpus` isn't used here — [sev_snp].vcpus below is the measurement-critical source
+# of truth for vCPU count instead.
+
+[hardening]
+level = "default"
+
+[hardening.kernel]
+disable_legacy_subsystems = true
+disable_debug_interfaces = true
+kernel_self_protection = true
+exploit_mitigations = true
+seccomp = true
+
+[hardening.runtime]
+network_spoofing_protection = true
+icmp_hardening = true
+tcp_hardening = true
+info_leak_restriction = true
+ptrace_and_bpf_restriction = true
+kexec_and_fs_protection = true
+
+# extra_sysctls = { "/proc/sys/some/other/knob" = "1" }
+# extra_kernel_config = ["CONFIG_DEBUG_INFO=enable"]
+
+[attestation]
+# Whether to compile and run the SEV-SNP remote-attestation HTTP server in the guest. Pulls
+# in extra dependencies (tokio, aws-lc-rs) — set false, or delete this section, if unneeded.
+# Only meaningful under sev-snp; casual never compiles this regardless.
+enabled = true
+# Port the attestation HTTP server listens on. Default 8080.
+port = 8080
+
+[sev_snp]
+# Must match what the image actually boots with — the measurement is only valid for this
+# exact count.
+vcpus = 2
+# CPU model passed to `sev-snp-measure.py --vcpu-type` (e.g. "EPYC-v3", "EPYC-v4") — must
+# match the hypervisor's actual exposed CPU model, or the measurement won't match what boots.
+vcpu_type = "EPYC-v3"
+# Baked into both the UKI's .cmdline section and the string passed to sev-snp-measure.py from
+# this one field, so what's measured and what boots can never drift apart. See
+# docs/architecture.md's cmdline rationale section for why each flag is (or isn't) here.
+kernel_cmdline = "console=ttyS0 ip=dhcp quiet loglevel=3 panic=-1 random.trust_cpu=on random.trust_bootloader=off page_alloc.shuffle=1 lockdown=confidentiality transparent_hugepage=madvise"
+
+[sev_snp.ovmf]
+# Exactly one of `preset` / `path` / `url` must be set — cloud providers ship different
+# OVMF/UEFI firmware builds for SEV-SNP.
+#
+# `preset = "builtin"` — the only preset — uses the AMD SEV-SNP firmware baked directly into
+# the create-unikernel binary (hash-pinned, never fetched over the network).
+preset = "builtin"
+# `path` — a local firmware file the provider gave you:
+# path = "./firmware/OVMF.fd"
+# `url` + `sha256` — downloaded and verified at build time:
+# url = "https://example-provider.com/ovmf/OVMF.fd"
+# sha256 = "…"   # required whenever `url` is set
+
+# Provider-specific extras — only needed if your hypervisor requires deviating from defaults.
+# qemu_extra_args = ["-machine", "confidential-guest-support=sev0"]
+# guest_policy = "0x30000"   # hex string; defaults to a conservative 0x30000 baseline
+
+[output]
+# ISO is available for sev-snp too but isn't the measured boot path — sev-snp-measure.py
+# always measures the cpio+bzImage (or UKI) pair.
+formats = ["cpio", "uki", "binary"]
+dir = "dist/"
+
+[release]
+# Omit `assets` to attach every produced asset (the default); see create-unikernel.casual.toml
+# for the full [release] reference. For sev-snp, keeping "measurement" and "ovmf" lets a third
+# party verify the launch measurement without rebuilding or tracking down the firmware build.
+# assets = ["cpio", "uki", "measurement", "ovmf"]
