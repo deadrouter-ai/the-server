@@ -63,7 +63,7 @@ jobs:
             ${{ runner.os }}-create-unikernel-
 
       - name: Install create-unikernel
-        run: ccargo install --git https://codeberg.org/hacer-bark/unikernel create-unikernel --locked
+        run: cargo install --git https://codeberg.org/hacer-bark/unikernel create-unikernel --locked
 
       - name: Build image
         run: create-unikernel build --config create-unikernel.toml
