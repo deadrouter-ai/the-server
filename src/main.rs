@@ -1,18 +1,3 @@
-// ======================================================================
-// the-server — Hardened multi-protocol test server
-//
-// Protocols:
-//   • HTTP/1.1 + HTTP/2  over TLS 1.3  (TCP :443)
-//   • HTTP/3             over QUIC     (UDP :443)
-//   • Plaintext HTTP/1.1 redirect      (TCP :80  →  https://…:443)
-//   • Tor Onion Service  (ephemeral .onion, via arti-client)
-//
-// Crypto:
-//   • aws-lc-rs (FIPS-grade) via rustls 0.23
-//   • Only AES-256-GCM-SHA384  (TLS 1.3)
-//   • Self-signed ECDSA P-256 cert (runtime-generated via rcgen)
-// ======================================================================
-
 use std::sync::Arc;
 use std::collections::HashMap;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
